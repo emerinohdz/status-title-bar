@@ -1,0 +1,6 @@
+{
+	"shell-version": ["3.2.1"], 
+	"uuid": "StatusTitleBar@devpower.org", 
+	"name": "Status Title Bar", 
+	"description": "Shows the title of windows in the status bar"
+}
