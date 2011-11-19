@@ -400,6 +400,11 @@ AppMenuButton.prototype = {
 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
             let ws = global.screen.get_workspace_by_index(i);
 
+			if (ws._windowAddedId) {
+				ws.disconnect(ws._windowAddedId);
+				ws.disconnect(ws._windowRemovedId);
+			}
+
             ws._windowAddedId = ws.connect('window-added',
                                     Lang.bind(this, this._windowAdded));
             ws._windowRemovedId = ws.connect('window-removed',
@@ -416,9 +421,11 @@ AppMenuButton.prototype = {
 	},
 
 	_initWindow: function(win) {
-		if (!win._notifyTitleId) {
-			win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
+		if (win._notifyTitleId) {
+			win.disconnect(win._notifyTitleId);
 		}
+
+		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
 	}
 };
 
