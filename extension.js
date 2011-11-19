@@ -1,3 +1,14 @@
+/**
+ * StatusTitleBar extension
+ * v0.2
+ *
+ * This extension replaces the original AppMenuButton from the
+ * gnome-shell panel with a new AppMenuButton that shows the
+ * title of the current focused window, when maximized, instead 
+ * of the application's name. If the focused window is not
+ * maximized then it reverts to showing the application's name.
+ *
+ */
 
 const St = imports.gi.St;
 const Main = imports.ui.main;
@@ -81,20 +92,17 @@ AppMenuButton.prototype = {
 
         let tracker = Shell.WindowTracker.get_default();
         let appSys = Shell.AppSystem.get_default();
-        tracker.connect('notify::focus-app', Lang.bind(this, this._syncApp));
+        tracker.connect('notify::focus-app', Lang.bind(this, this._sync));
         appSys.connect('app-state-changed', Lang.bind(this, this._onAppStateChanged));
 
-        global.window_manager.connect('switch-workspace', Lang.bind(this, this._switchWorkspaces));
+        global.window_manager.connect('switch-workspace', Lang.bind(this, this._sync));
 
 		global.window_manager.connect("maximize", Lang.bind(this, this._onMaximize));
 		global.window_manager.connect("unmaximize", Lang.bind(this, this._onUnmaximize));
-//		global.screen.connect("notify::n-workspaces", Lang.bind(this, this._changeWorkspaces));
 
-		this._windows = [];
-		this._workspaces = [];
+		global.screen.connect("notify::n-workspaces", Lang.bind(this, this._changeWorkspaces));
 
-		this._switchWorkspaces();
-//		this._changeWorkspaces();
+		this._changeWorkspaces();
     },
 
     show: function() {
@@ -270,18 +278,19 @@ AppMenuButton.prototype = {
         // cases where the focused window's application changes without the focus
         // changing.  An example case is how we map OpenOffice.org based on the window
         // title which is a dynamic property.
-        this._syncApp();
+        this._sync();
     },
 
-    _syncApp: function() {
+    _sync: function() {
         let tracker = Shell.WindowTracker.get_default();
         let lastStartedApp = null;
         let workspace = global.screen.get_active_workspace();
+
         for (let i = 0; i < this._startingApps.length; i++)
             if (this._startingApps[i].is_on_workspace(workspace))
                 lastStartedApp = this._startingApps[i];
 
-		let focusedApp = tracker.focus_app
+        let focusedApp = tracker.focus_app;
 
         if (!focusedApp) {
             // If the app has just lost focus to the panel, pretend
@@ -292,7 +301,6 @@ AppMenuButton.prototype = {
         }
 
         let targetApp = focusedApp != null ? focusedApp : lastStartedApp;
-
         if (targetApp == null) {
             if (!this._targetIsCurrent)
                 return;
@@ -317,8 +325,8 @@ AppMenuButton.prototype = {
                                            transition: 'easeOutQuad' });
         }
 
-		this._updateTitleLabel(targetApp);
-//		this._label.setText(targetApp.get_name());
+		let win = global.display.focus_window;
+		this._changeTitle(win, targetApp)
 
         if (targetApp == this._targetApp) {
             if (targetApp && targetApp.get_state() != Shell.AppState.STARTING)
@@ -346,20 +354,6 @@ AppMenuButton.prototype = {
         this.emit('changed');
     },
 
-	_updateTitleLabel: function(app) {
-		this._label.setText("");
-
-		for (let i = 0; i < this._windows.length; i++) {
-			let win = this._windows[i];
-
-			if (win.has_focus()) {
-				this._changeTitle(win, app);
-			}
-
-		}
-
-	},
-
 	_onTitleChanged: function(win) {
 		if (win.has_focus()) {
 			let tracker = Shell.WindowTracker.get_default();
@@ -370,6 +364,7 @@ AppMenuButton.prototype = {
 	},
 
 	_changeTitle: function(win, app) {
+		this._label.setText("");
 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
 
 		if (win.get_maximized() == maximizedFlags) {
@@ -392,74 +387,39 @@ AppMenuButton.prototype = {
 	},
 
 	_windowAdded: function(metaWorkspace, metaWindow) {
-		if (metaWorkspace != this._workspace) {
-			return;
-		}
-
-		let tracker = Shell.WindowTracker.get_default();
-
 		this._initWindow(metaWindow);
-
-		if (this._windows.indexOf(metaWindow) == -1 && tracker.is_window_interesting(metaWindow)) {
-			this._windows.push(metaWindow);
-		}
-
     },
 
     _windowRemoved: function(metaWorkspace, metaWindow) {
-		if (metaWorkspace != this._workspace) {
-			return;
+		if (metaWorkspace == global.screen.get_active_workspace()) {
+			this._sync();
 		}
-
-		let windowIndex = this._windows.indexOf(metaWindow);
-
-		if (windowIndex != -1) {
-			windows.splice(windowIndex, 1);
-		}
-
-		this._syncApp();
     },
 
-    _switchWorkspaces: function() {
-		this._reset();
+	_changeWorkspaces: function() {
+		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
+            let ws = global.screen.get_workspace_by_index(i);
 
-		this._workspace = global.screen.get_active_workspace();
-		this._windows = this._workspace.list_windows();
+            ws._windowAddedId = ws.connect('window-added',
+                                    Lang.bind(this, this._windowAdded));
+            ws._windowRemovedId = ws.connect('window-removed',
+                                    Lang.bind(this, this._windowRemoved));
 
-		for (let i in this._windows) {
-			let win = this._windows[i];
+			let windows = ws.list_windows();
 
-			this._initWindow(win);
-		}
+			for (j in windows) {
+				let win = windows[j];
 
-		this._workspace._windowAddedId = this._workspace.connect('window-added',
-								Lang.bind(this, this._windowAdded));
-		this._workspace._windowRemovedId = this._workspace.connect('window-removed',
-								Lang.bind(this, this._windowRemoved));
-
-		this._syncApp();
-    },
+				this._initWindow(win);
+			}
+        }
+	},
 
 	_initWindow: function(win) {
 		if (!win._notifyTitleId) {
 			win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
 		}
-	},
-
-	_reset: function() {
-		let ws = this._workspace;
-
-//			ws.disconnect(ws._windowAddedId);
-//			ws.disconnect(ws._windowRemovedId);
-
-		for ( let i = 0; i < this._windows.length; ++i ) {
-//				windows[i].disconnect(win._notifyTitleId);
-		}
-
-		this._workspace = null;
-		this._windows = [];
 	}
-
 };
 
 let newAppMenuButton;
