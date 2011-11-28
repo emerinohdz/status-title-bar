@@ -238,10 +238,10 @@ AppMenuButton.prototype = {
             childBox.x1 = Math.floor(iconWidth / 2);
 //            childBox.x2 = Math.min(childBox.x1 + naturalWidth, allocWidth);
 
-			// seems like using half the width of the monitor to display
+			// seems like using 3/5 the width of the monitor to display
 			// the title of the window is enough.
 			let monitor = Main.layoutManager.primaryMonitor;
-            childBox.x2 = childBox.x1 + (monitor.width / 2);
+            childBox.x2 = childBox.x1 + (monitor.width / 5) * 3;
         } else {
             childBox.x2 = allocWidth - Math.floor(iconWidth / 2);
             childBox.x1 = Math.max(0, childBox.x2 - naturalWidth);
