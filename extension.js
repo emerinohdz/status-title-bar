@@ -330,6 +330,11 @@ AppMenuButton.prototype = {
         }
 
 		let win = global.display.focus_window;
+
+		if (!win._notifyTitleId) {
+			this._initWindow(win);
+		}
+
 		this._changeTitle(win, targetApp)
 
         if (targetApp == this._targetApp) {
@@ -404,23 +409,15 @@ AppMenuButton.prototype = {
 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
             let ws = global.screen.get_workspace_by_index(i);
 
-			if (ws._windowAddedId) {
-				ws.disconnect(ws._windowAddedId);
+			if (ws._windowRemovedId) {
+//				ws.disconnect(ws._windowAddedId);
 				ws.disconnect(ws._windowRemovedId);
 			}
 
-            ws._windowAddedId = ws.connect('window-added',
-                                    Lang.bind(this, this._windowAdded));
+//            ws._windowAddedId = ws.connect('window-added',
+//                                    Lang.bind(this, this._windowAdded));
             ws._windowRemovedId = ws.connect('window-removed',
                                     Lang.bind(this, this._windowRemoved));
-
-			let windows = ws.list_windows();
-
-			for (j in windows) {
-				let win = windows[j];
-
-				this._initWindow(win);
-			}
         }
 	},
 
