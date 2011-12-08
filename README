@@ -5,6 +5,7 @@ Gnome-Shell extension that shows the current focused window's title in the statu
 
 It replaces the current AppButton that shows the current focused application's name. If the window is not maximized then it fallbacks to showing the focused applications name instead.
 
+FOR BEST RESULTS, USE THE EXTENSION "Extend left box": https://extensions.gnome.org/extension/51/extend-left-box
 
 Installation instructions:
 
