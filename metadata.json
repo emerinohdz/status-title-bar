@@ -1,5 +1,4 @@
 {
-	"shell-version": ["3.2.1"], 
 	"uuid": "StatusTitleBar@devpower.org", 
 	"name": "Status Title Bar", 
 	"shell-version": [
@@ -7,6 +6,5 @@
 		"3.2.0", 
 		"3.2.1"
 	], 
-    "url": "http://github.com/emerinohdz/StatusTitleBar",
-	"description": "Shows the title of windows in the status bar. FOR BEST RESULTS, USE THE 'Extend left box' extension to make the title take the whole available space in the status bar"
+	"description": "Shows the title of windows in the status bar. FOR BEST RESULTS, USE THE Extend left box EXTENSION TO MAKE THE TITLE TAKE THE WHOLE AVAILABLE SPACE IN THE STATUS BAR"
 }

@@ -331,15 +331,18 @@ AppMenuButton.prototype = {
 
 		let win = global.display.focus_window;
 
-		if (!win._notifyTitleId) {
-			this._initWindow(win);
-		}
+		if (win) {
+			if (!win._notifyTitleId) {
+				this._initWindow(win);
+			}
 
-		this._changeTitle(win, targetApp)
+			this._changeTitle(win, targetApp)
+		}
 
         if (targetApp == this._targetApp) {
             if (targetApp && targetApp.get_state() != Shell.AppState.STARTING)
                 this.stopAnimation();
+
             return;
         }
 
