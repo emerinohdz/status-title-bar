@@ -380,7 +380,7 @@ AppMenuButton.prototype = {
 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
 
 		if (win.get_maximized() == maximizedFlags) {
-			this._label.setText(win.title);
+			this._label.setText(win.title.replace("\n", " / "));
 		} else {
 			this._label.setText(app.get_name());
 		}
