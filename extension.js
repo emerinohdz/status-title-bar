@@ -10,18 +10,20 @@
  *
  */
 
+const Atk = imports.gi.Atk;
+const Clutter = imports.gi.Clutter;
+const Lang = imports.lang;
+const Meta = imports.gi.Meta;
 const St = imports.gi.St;
+const Util = imports.misc.util;
+
+const Shell = imports.gi.Shell;
 const Main = imports.ui.main;
 const Panel = imports.ui.panel;
 const Tweener = imports.ui.tweener;
-const Shell = imports.gi.Shell;
 const PopupMenu = imports.ui.popupMenu;
 const PanelMenu = imports.ui.panelMenu;
-const Clutter = imports.gi.Clutter;
-const Lang = imports.lang;
 const Overview = imports.ui.overview;
-const Meta = imports.gi.Meta;
-const Util = imports.misc.util;
 
 const PANEL_ICON_SIZE = 24;
 
@@ -474,22 +476,22 @@ function init() {
 
 function enable() {
 	if (!newAppMenuButton) {
-		newAppMenuButton = new AppMenuButton();
+		newAppMenuButton = new AppMenuButton(Main.panel._menus);
 	}
 
 	Main.panel._leftBox.remove_actor(Main.panel._appMenu.actor);
-    let children = Main.panel._rightBox.get_children();
+    let children = Main.panel._leftBox.get_children();
 
-	Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor, children.length-1);
-	Main.panel._menus.addMenu(newAppMenuButton.menu);
+	Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor, children.length);
+	//Main.panel._menus.addMenu(newAppMenuButton.menu); // added in _maybeSetMenu.
 }
 
 function disable() {
 	Main.panel._menus.removeMenu(newAppMenuButton.menu);
 	Main.panel._leftBox.remove_actor(newAppMenuButton.actor);
 
-    let children = Main.panel._rightBox.get_children();
-	Main.panel._leftBox.insert_child_at_index(Main.panel._appMenu.actor, children.length-1);
+    let children = Main.panel._leftBox.get_children();
+	Main.panel._leftBox.insert_child_at_index(Main.panel._appMenu.actor, children.length);
 
 	newAppMenuButton = null;
 }

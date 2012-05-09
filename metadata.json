@@ -4,7 +4,11 @@
 	"shell-version": [
 		"3.2", 
 		"3.2.0", 
-		"3.2.1"
+		"3.2.1",
+        "3.4",
+        "3.4.1"
 	], 
-	"description": "Shows the title of windows in the status bar. FOR BEST RESULTS, USE THE Extend left box EXTENSION TO MAKE THE TITLE TAKE THE WHOLE AVAILABLE SPACE IN THE STATUS BAR"
+	"description": "Shows the title of windows in the status bar. FOR BEST RESULTS, USE THE Extend left box EXTENSION TO MAKE THE TITLE TAKE THE WHOLE AVAILABLE SPACE IN THE STATUS BAR",
+    "version": 1,
+    "url":"https://github.com/emerinohdz/StatusTitleBar"
 }
