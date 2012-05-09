@@ -469,29 +469,128 @@ const AppMenuButton = new Lang.Class({
 
 });
 
-let newAppMenuButton;
 
+let menu=null;
 function init() {
 }
 
 function enable() {
-	if (!newAppMenuButton) {
-		newAppMenuButton = new AppMenuButton(Main.panel._menus);
-	}
+    menu = Main.panel._appMenu;
 
-	Main.panel._leftBox.remove_actor(Main.panel._appMenu.actor);
-    let children = Main.panel._leftBox.get_children();
+    /* Do monkey patching */
 
-	Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor, children.length);
-	//Main.panel._menus.addMenu(newAppMenuButton.menu); // added in _maybeSetMenu.
+ 	menu._onTitleChanged = function(win) {
+ 		if (win.has_focus()) {
+ 			let tracker = Shell.WindowTracker.get_default();
+ 			let app = tracker.get_window_app(win);
+ 			this._changeTitle(win, app);
+ 		}
+ 	};
+ 
+ 	menu._changeTitle = function(win, app) {
+ 		this._label.setText("");
+ 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
+ 		if (win.get_maximized() == maximizedFlags) {
+ 			this._label.setText(win.title);
+ 		} else {
+ 			this._label.setText(app.get_name());
+ 		}
+ 	};
+ 
+ 	menu._onMaximize = function(shellwm, actor) {
+ 		let win = actor.get_meta_window();
+ 		this._onTitleChanged(win);
+ 	};
+ 
+ 	menu._onUnmaximize = function(shellwm, actor) {
+ 		let win = actor.get_meta_window();
+ 		this._onTitleChanged(win);
+ 	};
+ 
+ 	menu._windowAdded = function(metaWorkspace, metaWindow) {
+ 		this._initWindow(metaWindow);
+    };
+ 
+    menu._windowRemoved = function(metaWorkspace, metaWindow) {
+ 		if (metaWorkspace == global.screen.get_active_workspace()) {
+ 			this._sync();
+ 		}
+    };
+ 
+ 	menu._changeWorkspaces = function() {
+ 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
+             let ws = global.screen.get_workspace_by_index(i);
+ 			if (ws._windowRemovedId) {
+ 				ws.disconnect(ws._windowRemovedId);
+ 			}
+             ws._windowRemovedId = ws.connect('window-removed',
+                                     Lang.bind(this, this._windowRemoved));
+         }
+    };
+ 
+ 	menu._initWindow = function(win) {
+ 		if (win._notifyTitleId) {
+ 			win.disconnect(win._notifyTitleId);
+ 		}
+ 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
+ 	};
+
+    /* __init__:
+     * menu.actor ('bin'): name change to 'windowTitle'
+     * don't call _sync: replace with a whole bunch of connects
+     *
+     * _sync:
+     * added _changeWindowTitle
+     * removed a few SetText
+     */
+    menu._oldSync = menu._sync;
+    menu._oldInit = menu._init;
+   
+    // TODO: use of 'this'? 
+    menu._init = function(menuManager) {
+        // menu._oldInit(menuManager) --> 'windowTitle', calls _sync!
+  		global.window_manager.connect("maximize", Lang.bind(this, this._onMaximize));
+  		global.window_manager.connect("unmaximize", Lang.bind(this, this._onUnmaximize));
+  		global.screen.connect("notify::n-workspaces", Lang.bind(this, this._changeWorkspaces));
+  		this._changeWorkspaces();
+    }
+
+    menu._sync = function() {
+        // menu._oldSync();
+        /* Added */
+		let win = global.display.focus_window;
+
+		if (!win._notifyTitleId) {
+			this._initWindow(win);
+		}
+
+		this._changeTitle(win, targetApp)
+        /* End added */
+        // blah there's all sorts of conditions under which you'd return.
+    }
+    // TODO: monkey patch these.
+
+
 }
+
 
 function disable() {
-	Main.panel._menus.removeMenu(newAppMenuButton.menu);
-	Main.panel._leftBox.remove_actor(newAppMenuButton.actor);
+    if ( !menu ) {
+        return;
+    }
+    menu._sync = menu._OldSync;
+    menu._init = menu._OldInit;
+    menu._OldSync = null;
+    menu._OldInit = null;
 
-    let children = Main.panel._leftBox.get_children();
-	Main.panel._leftBox.insert_child_at_index(Main.panel._appMenu.actor, children.length);
-
-	newAppMenuButton = null;
+   /* Undo monkey patching */
+    menu._onTitleChanged  = null;
+ 	menu._changeTitle  = null;
+ 	menu._onMaximize  = null;
+ 	menu._onUnmaximize  = null;
+ 	menu._windowAdded  = null;
+    menu._windowRemoved  = null;
+ 	menu._changeWorkspaces  = null;
+ 	menu._initWindow  = null;
 }
+
