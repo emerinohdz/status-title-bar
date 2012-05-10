@@ -1,0 +1,120 @@
+22c22
+<         let bin = new St.Bin({ name: 'appMenu' });
+---
+>         let bin = new St.Bin({ name: 'windowTitle' });
+40c40
+<         this._label = new TextShadower();
+---
+>         this._label = new Panel.TextShadower();
+61c61
+<         this._spinner = new AnimatedIcon('process-working.svg',
+---
+>         this._spinner = new Panel.AnimatedIcon('process-working.svg',
+73c73,78
+<         this._sync();
+---
+> 		global.window_manager.connect("maximize", Lang.bind(this, this._onMaximize));
+> 		global.window_manager.connect("unmaximize", Lang.bind(this, this._onUnmaximize));
+> 
+> 		global.screen.connect("notify::n-workspaces", Lang.bind(this, this._changeWorkspaces));
+> 
+> 		this._changeWorkspaces();
+173a179
+> 	// TODO: Find optimal width!
+188a195
+> //            childBox.x2 = childBox.x1 + Math.max(naturalWidth, allocWidth);
+205a213,217
+> 
+> 			// seems like using 3/5 the width of the monitor to display
+> 			// the title of the window is enough.
+> //			let monitor = Main.layoutManager.primaryMonitor;
+> //            childBox.x2 = childBox.x1 + (monitor.width / 5) * 3;
+252a265
+> 
+268d280
+< 
+292a305,312
+> 		let win = global.display.focus_window;
+> 
+> 		if (!win._notifyTitleId) {
+> 			this._initWindow(win);
+> 		}
+> 
+> 		this._changeTitle(win, targetApp)
+> 
+303d322
+<         this._label.setText('');
+308d326
+<         this._label.setText(targetApp.get_name());
+319c337,403
+<     }
+---
+>     },
+> 
+> 	_onTitleChanged: function(win) {
+> 		if (win.has_focus()) {
+> 			let tracker = Shell.WindowTracker.get_default();
+> 			let app = tracker.get_window_app(win);
+> 
+> 			this._changeTitle(win, app);
+> 		}
+> 	},
+> 
+> 	_changeTitle: function(win, app) {
+> 		this._label.setText("");
+> 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
+> 
+> 		if (win.get_maximized() == maximizedFlags) {
+> 			this._label.setText(win.title);
+> 		} else {
+> 			this._label.setText(app.get_name());
+> 		}
+> 	},
+> 
+> 	_onMaximize: function(shellwm, actor) {
+> 		let win = actor.get_meta_window();
+> 
+> 		this._onTitleChanged(win);
+> 	},
+> 
+> 	_onUnmaximize: function(shellwm, actor) {
+> 		let win = actor.get_meta_window();
+> 
+> 		this._onTitleChanged(win);
+> 	},
+> 
+> 	_windowAdded: function(metaWorkspace, metaWindow) {
+> 		this._initWindow(metaWindow);
+>     },
+> 
+>     _windowRemoved: function(metaWorkspace, metaWindow) {
+> 		if (metaWorkspace == global.screen.get_active_workspace()) {
+> 			this._sync();
+> 		}
+>     },
+> 
+> 	_changeWorkspaces: function() {
+> 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
+>             let ws = global.screen.get_workspace_by_index(i);
+> 
+> 			if (ws._windowRemovedId) {
+> //				ws.disconnect(ws._windowAddedId);
+> 				ws.disconnect(ws._windowRemovedId);
+> 			}
+> 
+> //            ws._windowAddedId = ws.connect('window-added',
+> //                                    Lang.bind(this, this._windowAdded));
+>             ws._windowRemovedId = ws.connect('window-removed',
+>                                     Lang.bind(this, this._windowRemoved));
+>         }
+> 	},
+> 
+> 	_initWindow: function(win) {
+> 		if (win._notifyTitleId) {
+> 			win.disconnect(win._notifyTitleId);
+> 		}
+> 
+> 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
+> 	}
+320a405
+> 
