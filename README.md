@@ -22,4 +22,4 @@ Installation
 Author
 ------
 
-[Edgar Merino](@emerinohdz) <donvodka at gmail dot com>
+[Edgar Merino](https://github.com/emerinohdz) (donvodka at gmail dot com)
