@@ -27,19 +27,121 @@ const Overview = imports.ui.overview;
 
 const PANEL_ICON_SIZE = 24;
 
-/**
- * AppMenuButton:
- *
- * This class manages the "application menu" component.  It tracks the
- * currently focused application.  However, when an app is launched,
- * this menu also handles startup notification for it.  So when we
- * have an active startup notification, we switch modes to display that.
+/** Utility functions **/
+/* Note : credit to the shellshape extension, from which these functions
+ * are modified. https://extensions.gnome.org/extension/294/shellshape/
+ * Signals are stored by the owner, storing both the target &
+ * the id to clean up later.
  */
-const AppMenuButton = new Lang.Class({
-    Name: 'AppMenuButton',
-    Extends: PanelMenu.Button,
+function connectAndTrack(owner, subject, name, cb) {
+    if (!owner.hasOwnProperty('_StatusTitleBar_bound_signals')) {
+        owner._StatusTitleBar_bound_signals = [];
+    }
+    owner._StatusTitleBar_bound_signals.push([subject, subject.connect(name, cb)]);
+}
 
-    _init: function(menuManager) {
+function disconnectTrackedSignals(owner) {
+    if (!owner || !owner._StatusTitleBar_bound_signals) { return; }
+    owner._StatusTitleBar_bound_signals.map(
+        function (sig) {
+            sig[0].disconnect(sig[1]);
+        }
+    );
+    delete owner._StatusTitleBar_bound_signals;
+}
+
+/** Extension code **/
+let storage = {};
+function init() {
+}
+
+function enable() {
+    // laziness
+    let AppMenuButton = Panel.AppMenuButton.prototype;
+
+    /* Do monkey patching */
+ 	AppMenuButton._onTitleChanged = function(win) {
+ 		if (win.has_focus()) {
+ 			let tracker = Shell.WindowTracker.get_default();
+ 			let app = tracker.get_window_app(win);
+ 			this._changeTitle(win, app);
+ 		}
+ 	};
+ 
+ 	AppMenuButton._changeTitle = function(win, app) {
+ 		this._label.setText("");
+ 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
+ 		if (win.get_maximized() == maximizedFlags) {
+ 			this._label.setText(win.title);
+ 		} else {
+ 			this._label.setText(app.get_name());
+ 		}
+ 	};
+ 
+ 	AppMenuButton._onMaximize = function(shellwm, actor) {
+ 		let win = actor.get_meta_window();
+ 		this._onTitleChanged(win);
+ 	};
+ 
+ 	AppMenuButton._onUnmaximize = function(shellwm, actor) {
+ 		let win = actor.get_meta_window();
+ 		this._onTitleChanged(win);
+ 	};
+ 
+ 	AppMenuButton._windowAdded = function(metaWorkspace, metaWindow) {
+ 		this._initWindow(metaWindow);
+    };
+ 
+    AppMenuButton._windowRemoved = function(metaWorkspace, metaWindow) {
+ 		if (metaWorkspace == global.screen.get_active_workspace()) {
+ 			this._sync();
+ 		}
+    };
+ 
+ 	AppMenuButton._changeWorkspaces = function() {
+ 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
+             let ws = global.screen.get_workspace_by_index(i);
+ 			if (ws._windowRemovedId) {
+ 				ws.disconnect(ws._windowRemovedId);
+ 			}
+             ws._windowRemovedId = ws.connect('window-removed',
+                                     Lang.bind(this, this._windowRemoved));
+         }
+    };
+ 
+ 	AppMenuButton._initWindow = function(win) {
+ 		if (win._notifyTitleId) {
+ 			win.disconnect(win._notifyTitleId);
+ 		}
+ 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
+ 	};
+
+    /** Add a 'destroy' method that disconnects all the signals
+     * (the actual AppMenu.Button class in panel.js doesn't do this!)
+     */
+    AppMenuButton.destroy = function () {
+        // disconnect signals
+        this.disconnectTrackedSignals(this);
+        // Call parent destroy.
+        this.parent();
+    };
+
+    /* __init:
+     * - menu.actor ('bin'): name change to 'windowTitle'
+     * - don't call _sync: replace with a whole bunch of connects
+     * - track all global connected signals so we can disconnect later.
+     *
+     * _sync:
+     * added _changeWindowTitle
+     * removed a few SetText
+     */
+    storage._sync = AppMenuButton._sync;
+    storage._init = AppMenuButton._init;
+   
+    AppMenuButton._init = function(menuManager) {
+        /* This is the same as AppMenuButton._init except for the very last line,
+         * which was this._sync().
+         */
         this.parent(0.0, null, true);
 
         this.actor.accessible_role = Atk.Role.MENU;
@@ -78,10 +180,12 @@ const AppMenuButton = new Lang.Class({
         this._visible = !Main.overview.visible;
         if (!this._visible)
             this.actor.hide();
-        Main.overview.connect('hiding', Lang.bind(this, function () {
+
+        /* Track all globally connected signals ! */
+        connectAndTrack(this, Main.overview, 'hiding', Lang.bind(this, function () {
             this.show();
         }));
-        Main.overview.connect('showing', Lang.bind(this, function () {
+        connectAndTrack(this, Main.overview, 'showing', Lang.bind(this, function () {
             this.hide();
         }));
 
@@ -94,202 +198,27 @@ const AppMenuButton = new Lang.Class({
 
         let tracker = Shell.WindowTracker.get_default();
         let appSys = Shell.AppSystem.get_default();
-        tracker.connect('notify::focus-app', Lang.bind(this, this._focusAppChanged));
-        appSys.connect('app-state-changed', Lang.bind(this, this._onAppStateChanged));
+        connectAndTrack(this, tracker, 'notify::focus-app',
+                Lang.bind(this, this._focusAppChanged));
+        connectAndTrack(this, appSys, 'app-state-changed',
+                Lang.bind(this, this._onAppStateChanged));
 
-        global.window_manager.connect('switch-workspace', Lang.bind(this, this._sync));
+        connectAndTrack(this, global.window_manager, 'switch-workspace',
+                Lang.bind(this, this._sync));
 
-        // replace this._sync with:
-  		global.window_manager.connect("maximize", Lang.bind(this, this._onMaximize));
-  		global.window_manager.connect("unmaximize", Lang.bind(this, this._onUnmaximize));
+        /*** This is what this._sync() in the original _init is replaced with ***/
+        connectAndTrack(this, global.window_manager, 'maximize',
+                Lang.bind(this, this._onMaximize));
+        connectAndTrack(this, global.window_manager, 'unmaximize',
+                Lang.bind(this, this._onUnmaximize));
   
-  		global.screen.connect("notify::n-workspaces", Lang.bind(this, this._changeWorkspaces));
+        connectAndTrack(this, global.screen, 'notify::n-workspaces',
+                Lang.bind(this, this._changeWorkspaces));
   
-  		this._changeWorkspaces();
-    },
+        this._changeWorkspaces();
+    };
 
-    show: function() {
-        if (this._visible)
-            return;
-
-        this._visible = true;
-        this.actor.show();
-
-        if (!this._targetIsCurrent)
-            return;
-
-        this.actor.reactive = true;
-
-        Tweener.removeTweens(this.actor);
-        Tweener.addTween(this.actor,
-                         { opacity: 255,
-                           time: Overview.ANIMATION_TIME,
-                           transition: 'easeOutQuad' });
-    },
-
-    hide: function() {
-        if (!this._visible)
-            return;
-
-        this._visible = false;
-        this.actor.reactive = false;
-        if (!this._targetIsCurrent) {
-            this.actor.hide();
-            return;
-        }
-
-        Tweener.removeTweens(this.actor);
-        Tweener.addTween(this.actor,
-                         { opacity: 0,
-                           time: Overview.ANIMATION_TIME,
-                           transition: 'easeOutQuad',
-                           onComplete: function() {
-                               this.actor.hide();
-                           },
-                           onCompleteScope: this });
-    },
-
-    _onIconBoxStyleChanged: function() {
-        let node = this._iconBox.get_theme_node();
-        this._iconBottomClip = node.get_length('app-icon-bottom-clip');
-        this._updateIconBoxClip();
-    },
-
-    _updateIconBoxClip: function() {
-        let allocation = this._iconBox.allocation;
-        if (this._iconBottomClip > 0)
-            this._iconBox.set_clip(0, 0,
-                                   allocation.x2 - allocation.x1,
-                                   allocation.y2 - allocation.y1 - this._iconBottomClip);
-        else
-            this._iconBox.remove_clip();
-    },
-
-    stopAnimation: function() {
-        if (this._stop)
-            return;
-
-        this._stop = true;
-        Tweener.addTween(this._spinner.actor,
-                         { opacity: 0,
-                           time: SPINNER_ANIMATION_TIME,
-                           transition: "easeOutQuad",
-                           onCompleteScope: this,
-                           onComplete: function() {
-                               this._spinner.actor.opacity = 255;
-                               this._spinner.actor.hide();
-                           }
-                         });
-    },
-
-    startAnimation: function() {
-        this._stop = false;
-        this._spinner.actor.show();
-    },
-
-    _getContentPreferredWidth: function(actor, forHeight, alloc) {
-        let [minSize, naturalSize] = this._iconBox.get_preferred_width(forHeight);
-        alloc.min_size = minSize;
-        alloc.natural_size = naturalSize;
-        [minSize, naturalSize] = this._label.actor.get_preferred_width(forHeight);
-        alloc.min_size = alloc.min_size + Math.max(0, minSize - Math.floor(alloc.min_size / 2));
-        alloc.natural_size = alloc.natural_size + Math.max(0, naturalSize - Math.floor(alloc.natural_size / 2));
-    },
-
-    _getContentPreferredHeight: function(actor, forWidth, alloc) {
-        let [minSize, naturalSize] = this._iconBox.get_preferred_height(forWidth);
-        alloc.min_size = minSize;
-        alloc.natural_size = naturalSize;
-        [minSize, naturalSize] = this._label.actor.get_preferred_height(forWidth);
-        if (minSize > alloc.min_size)
-            alloc.min_size = minSize;
-        if (naturalSize > alloc.natural_size)
-            alloc.natural_size = naturalSize;
-    },
-
-    _contentAllocate: function(actor, box, flags) {
-        let allocWidth = box.x2 - box.x1;
-        let allocHeight = box.y2 - box.y1;
-        let childBox = new Clutter.ActorBox();
-
-        let [minWidth, minHeight, naturalWidth, naturalHeight] = this._iconBox.get_preferred_size();
-
-        let direction = this.actor.get_text_direction();
-
-        let yPadding = Math.floor(Math.max(0, allocHeight - naturalHeight) / 2);
-        childBox.y1 = yPadding;
-        childBox.y2 = childBox.y1 + Math.min(naturalHeight, allocHeight);
-        if (direction == Clutter.TextDirection.LTR) {
-            childBox.x1 = 0;
-            childBox.x2 = childBox.x1 + Math.min(naturalWidth, allocWidth);
-        } else {
-            childBox.x1 = Math.max(0, allocWidth - naturalWidth);
-            childBox.x2 = allocWidth;
-        }
-        this._iconBox.allocate(childBox, flags);
-
-        let iconWidth = childBox.x2 - childBox.x1;
-
-        [minWidth, minHeight, naturalWidth, naturalHeight] = this._label.actor.get_preferred_size();
-
-        yPadding = Math.floor(Math.max(0, allocHeight - naturalHeight) / 2);
-        childBox.y1 = yPadding;
-        childBox.y2 = childBox.y1 + Math.min(naturalHeight, allocHeight);
-
-        if (direction == Clutter.TextDirection.LTR) {
-            childBox.x1 = Math.floor(iconWidth / 2);
-            childBox.x2 = Math.min(childBox.x1 + naturalWidth, allocWidth);
-        } else {
-            childBox.x2 = allocWidth - Math.floor(iconWidth / 2);
-            childBox.x1 = Math.max(0, childBox.x2 - naturalWidth);
-        }
-        this._label.actor.allocate(childBox, flags);
-
-        if (direction == Clutter.TextDirection.LTR) {
-            childBox.x1 = Math.floor(iconWidth / 2) + this._label.actor.width;
-            childBox.x2 = childBox.x1 + this._spinner.actor.width;
-            childBox.y1 = box.y1;
-            childBox.y2 = box.y2 - 1;
-            this._spinner.actor.allocate(childBox, flags);
-        } else {
-            childBox.x1 = -this._spinner.actor.width;
-            childBox.x2 = childBox.x1 + this._spinner.actor.width;
-            childBox.y1 = box.y1;
-            childBox.y2 = box.y2 - 1;
-            this._spinner.actor.allocate(childBox, flags);
-        }
-    },
-
-    _onAppStateChanged: function(appSys, app) {
-        let state = app.state;
-        if (state != Shell.AppState.STARTING) {
-            this._startingApps = this._startingApps.filter(function(a) {
-                return a != app;
-            });
-        } else if (state == Shell.AppState.STARTING) {
-            this._startingApps.push(app);
-        }
-        // For now just resync on all running state changes; this is mainly to handle
-        // cases where the focused window's application changes without the focus
-        // changing.  An example case is how we map OpenOffice.org based on the window
-        // title which is a dynamic property.
-        this._sync();
-    },
-
-    _focusAppChanged: function() {
-        let tracker = Shell.WindowTracker.get_default();
-        let focusedApp = tracker.focus_app;
-        if (!focusedApp) {
-            // If the app has just lost focus to the panel, pretend
-            // nothing happened; otherwise you can't keynav to the
-            // app menu.
-            if (global.stage_input_mode == Shell.StageInputMode.FOCUSED)
-                return;
-        }
-        this._sync();
-    },
-
-    _sync: function() {
+    AppMenuButton._sync = function() {
         let tracker = Shell.WindowTracker.get_default();
         let focusedApp = tracker.focus_app;
         let lastStartedApp = null;
@@ -328,13 +257,13 @@ const AppMenuButton = new Lang.Class({
         }
 
         /* Added */
-		let win = global.display.focus_window;
+        let win = global.display.focus_window;
 
-		if (!win._notifyTitleId) {
-			this._initWindow(win);
-		}
+        if (!win._notifyTitleId) {
+            this._initWindow(win);
+        }
 
-		this._changeTitle(win, targetApp)
+        this._changeTitle(win, targetApp)
         /* End added */
 
         if (targetApp == this._targetApp) {
@@ -378,120 +307,25 @@ const AppMenuButton = new Lang.Class({
             this._maybeSetMenu();
 
         this.emit('changed');
-    },
-
-    _maybeSetMenu: function() {
-        let menu;
-
-        if (this._targetApp.action_group && this._targetApp.menu) {
-            if (this.menu instanceof PopupMenu.RemoteMenu &&
-                this.menu.actionGroup == this._targetApp.action_group)
-                return;
-
-            menu = new PopupMenu.RemoteMenu(this.actor, this._targetApp.menu, this._targetApp.action_group);
-        } else {
-            if (this.menu && !(this.menu instanceof PopupMenu.RemoteMenu))
-                return;
-
-            // fallback to older menu
-            menu = new PopupMenu.PopupMenu(this.actor, 0.0, St.Side.TOP, 0);
-            menu.addAction(_("Quit"), Lang.bind(this, function() {
-                this._targetApp.request_quit();
-            }));
-        }
-
-        this.setMenu(menu);
-        this._menuManager.addMenu(menu);
-    },
- 
- 	_onTitleChanged: function(win) {
- 		if (win.has_focus()) {
- 			let tracker = Shell.WindowTracker.get_default();
- 			let app = tracker.get_window_app(win);
- 
- 			this._changeTitle(win, app);
- 		}
- 	},
- 
- 	_changeTitle: function(win, app) {
- 		this._label.setText("");
- 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
- 
- 		if (win.get_maximized() == maximizedFlags) {
- 			this._label.setText(win.title);
- 		} else {
- 			this._label.setText(app.get_name());
- 		}
- 	},
- 
- 	_onMaximize: function(shellwm, actor) {
- 		let win = actor.get_meta_window();
- 
- 		this._onTitleChanged(win);
- 	},
- 
- 	_onUnmaximize: function(shellwm, actor) {
- 		let win = actor.get_meta_window();
- 
- 		this._onTitleChanged(win);
- 	},
- 
- 	_windowAdded: function(metaWorkspace, metaWindow) {
- 		this._initWindow(metaWindow);
-     },
- 
-     _windowRemoved: function(metaWorkspace, metaWindow) {
- 		if (metaWorkspace == global.screen.get_active_workspace()) {
- 			this._sync();
- 		}
-     },
- 
- 	_changeWorkspaces: function() {
- 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
-             let ws = global.screen.get_workspace_by_index(i);
- 
- 			if (ws._windowRemovedId) {
- 				ws.disconnect(ws._windowRemovedId);
- 			}
- 
-             ws._windowRemovedId = ws.connect('window-removed',
-                                     Lang.bind(this, this._windowRemoved));
-         }
- 	},
- 
- 	_initWindow: function(win) {
- 		if (win._notifyTitleId) {
- 			win.disconnect(win._notifyTitleId);
- 		}
- 
- 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
- 	}
-
-});
-
-let newAppMenuButton;
-
-function init() {
+    };
 }
 
-function enable() {
-	if (!newAppMenuButton) {
-		newAppMenuButton = new AppMenuButton(Main.panel._menus);
-	}
-
-	Main.panel._leftBox.remove_actor(Main.panel._appMenu.actor);
-    let children = Main.panel._leftBox.get_children();
-
-	Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor, children.length);
-	//Main.panel._menus.addMenu(newAppMenuButton.menu); // added in _maybeSetMenu.
-}
 
 function disable() {
-	Main.panel._menus.removeMenu(newAppMenuButton.menu);
-	Main.panel._leftBox.remove_actor(newAppMenuButton.actor);
+    let AppMenuButton = Panel.AppMenuButton.prototype;
 
-    let children = Main.panel._leftBox.get_children();
-	Main.panel._leftBox.insert_child_at_index(Main.panel._appMenu.actor, children.length);
+    AppMenuButton._sync = storage._sync;
+    AppMenuButton._init = storage._init;
+    storage = {};
 
-	newAppMenuButton = null;
+   /* Undo monkey patching */
+    AppMenuButton._onTitleChanged  = null;
+ 	AppMenuButton._changeTitle  = null;
+ 	AppMenuButton._onMaximize  = null;
+ 	AppMenuButton._onUnmaximize  = null;
+ 	AppMenuButton._windowAdded  = null;
+    AppMenuButton._windowRemoved  = null;
+ 	AppMenuButton._changeWorkspaces  = null;
+ 	AppMenuButton._initWindow  = null;
 }
+
