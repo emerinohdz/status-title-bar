@@ -9,7 +9,7 @@ not maximized, then it falls back to showing the focused applications name.
 Note
 ----
 
-For best results, use the the extension
+For best results, use the extension
 [Extend left box](https://extensions.gnome.org/extension/51/extend-left-box).
 
 Installation
