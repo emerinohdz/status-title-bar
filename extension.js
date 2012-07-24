@@ -388,11 +388,11 @@ const AppMenuButton = new Lang.Class({
         this._iconBox.hide();
         //this._label.setText('');
 
-        this.disconnectTrackedSignals(this._targetAppSignals);
+        disconnectTrackedSignals(this._targetAppSignals);
         if (targetApp) {
-            this.connectAndTrack(this._targetAppSignals, targetApp,
+            connectAndTrack(this._targetAppSignals, targetApp,
                 'notify::menu', Lang.bind(this, this._sync));
-            this.connectAndTrack(this._targetAppSignals, targetApp,
+            connectAndTrack(this._targetAppSignals, targetApp,
                 'notify::action-group', Lang.bind(this, this._sync));
         }
 
@@ -480,10 +480,10 @@ const AppMenuButton = new Lang.Class({
      },
  
  	_changeWorkspaces: function() {
-        this.disconnectTrackedSignals(this._wsSignals);
+        disconnectTrackedSignals(this._wsSignals);
  		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
              let ws = global.screen.get_workspace_by_index(i);
-             this.connectAndTrack(this._wsSignals, ws, 'window-removed',
+             connectAndTrack(this._wsSignals, ws, 'window-removed',
                      Lang.bind(this, this._windowRemoved));
          }
  	},
@@ -501,10 +501,10 @@ const AppMenuButton = new Lang.Class({
      */
     destroy: function () {
         // disconnect signals
-        this.disconnectTrackedSignals(this);
+        disconnectTrackedSignals(this);
 
         // any signals from _changeWorkspaces
-        this.disconnectTrackedSignals(this._wsSignals);
+        disconnectTrackedSignals(this._wsSignals);
 
         // any signals from _initWindow. _sync requires the _notifyTitleId.
         let windows = global.get_window_actors();
@@ -517,12 +517,11 @@ const AppMenuButton = new Lang.Class({
         }
 
         // any signals from _sync
-        this.disconnectTrackedSignals(this._targetAppSignals);
+        disconnectTrackedSignals(this._targetAppSignals);
 
         // Call parent destroy.
         this.parent();
-    };
-
+    }
 });
 
 let newAppMenuButton;
