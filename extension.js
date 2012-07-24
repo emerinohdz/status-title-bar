@@ -27,6 +27,29 @@ const Overview = imports.ui.overview;
 
 const PANEL_ICON_SIZE = 24;
 
+/** Utility functions **/
+/* Note : credit to the shellshape extension, from which these functions
+ * are modified. https://extensions.gnome.org/extension/294/shellshape/
+ * Signals are stored by the owner, storing both the target &
+ * the id to clean up later.
+ */
+function connectAndTrack(owner, subject, name, cb) {
+    if (!owner.hasOwnProperty('_StatusTitleBar_bound_signals')) {
+        owner._StatusTitleBar_bound_signals = [];
+    }
+    owner._StatusTitleBar_bound_signals.push([subject, subject.connect(name, cb)]);
+}
+
+function disconnectTrackedSignals(owner) {
+    if (!owner || !owner._StatusTitleBar_bound_signals) { return; }
+    owner._StatusTitleBar_bound_signals.map(
+        function (sig) {
+            sig[0].disconnect(sig[1]);
+        }
+    );
+    delete owner._StatusTitleBar_bound_signals;
+}
+
 /**
  * AppMenuButton:
  *
@@ -48,8 +71,6 @@ const AppMenuButton = new Lang.Class({
 
         this._menuManager = menuManager;
         this._targetApp = null;
-        this._appMenuNotifyId = 0;
-        this._actionGroupNotifyId = 0;
 
         let bin = new St.Bin({ name: 'windowTitle' });
         this.actor.add_actor(bin);
@@ -78,10 +99,16 @@ const AppMenuButton = new Lang.Class({
         this._visible = !Main.overview.visible;
         if (!this._visible)
             this.actor.hide();
-        Main.overview.connect('hiding', Lang.bind(this, function () {
+
+        /*** Holders for local tracked signals ***/
+        this._wsSignals = {};
+        this._targetAppSignals = {};
+
+        /* Track all globally connected signals ! */
+        connectAndTrack(this, Main.overview, 'hiding', Lang.bind(this, function () {
             this.show();
         }));
-        Main.overview.connect('showing', Lang.bind(this, function () {
+        connectAndTrack(this, Main.overview, 'showing', Lang.bind(this, function () {
             this.hide();
         }));
 
@@ -94,16 +121,26 @@ const AppMenuButton = new Lang.Class({
 
         let tracker = Shell.WindowTracker.get_default();
         let appSys = Shell.AppSystem.get_default();
-        tracker.connect('notify::focus-app', Lang.bind(this, this._focusAppChanged));
-        appSys.connect('app-state-changed', Lang.bind(this, this._onAppStateChanged));
+        connectAndTrack(this, tracker, 'notify::focus-app',
+                Lang.bind(this, this._focusAppChanged));
+        connectAndTrack(this, appSys, 'app-state-changed',
+                Lang.bind(this, this._onAppStateChanged));
 
-        global.window_manager.connect('switch-workspace', Lang.bind(this, this._sync));
+        connectAndTrack(this, global.window_manager, 'switch-workspace',
+                Lang.bind(this, this._sync));
 
-        // replace this._sync with:
-  		global.window_manager.connect("maximize", Lang.bind(this, this._onMaximize));
-  		global.window_manager.connect("unmaximize", Lang.bind(this, this._onUnmaximize));
+        /*** This is what this._sync() in the original _init is replaced with ***/
+        connectAndTrack(this, global.window_manager, 'maximize',
+                Lang.bind(this, this._onMaximize));
+        connectAndTrack(this, global.window_manager, 'unmaximize',
+                Lang.bind(this, this._onUnmaximize));
   
-  		global.screen.connect("notify::n-workspaces", Lang.bind(this, this._changeWorkspaces));
+        connectAndTrack(this, global.screen, 'notify::n-workspaces',
+                Lang.bind(this, this._changeWorkspaces));
+
+        // if actor is destroyed, we must disconnect.
+        connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
+
   
   		this._changeWorkspaces();
     },
@@ -351,16 +388,12 @@ const AppMenuButton = new Lang.Class({
         this._iconBox.hide();
         //this._label.setText('');
 
-        if (this._appMenuNotifyId)
-            this._targetApp.disconnect(this._appMenuNotifyId);
-        if (this._actionGroupNotifyId)
-            this._targetApp.disconnect(this._actionGroupNotifyId);
+        this.disconnectTrackedSignals(this._targetAppSignals);
         if (targetApp) {
-            this._appMenuNotifyId = targetApp.connect('notify::menu', Lang.bind(this, this._sync));
-            this._actionGroupNotifyId = targetApp.connect('notify::action-group', Lang.bind(this, this._sync));
-        } else {
-            this._appMenuNotifyId = 0;
-            this._actionGroupNotifyId = 0;
+            this.connectAndTrack(this._targetAppSignals, targetApp,
+                'notify::menu', Lang.bind(this, this._sync));
+            this.connectAndTrack(this._targetAppSignals, targetApp,
+                'notify::action-group', Lang.bind(this, this._sync));
         }
 
         this._targetApp = targetApp;
@@ -447,15 +480,11 @@ const AppMenuButton = new Lang.Class({
      },
  
  	_changeWorkspaces: function() {
+        this.disconnectTrackedSignals(this._wsSignals);
  		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
              let ws = global.screen.get_workspace_by_index(i);
- 
- 			if (ws._windowRemovedId) {
- 				ws.disconnect(ws._windowRemovedId);
- 			}
- 
-             ws._windowRemovedId = ws.connect('window-removed',
-                                     Lang.bind(this, this._windowRemoved));
+             this.connectAndTrack(this._wsSignals, ws, 'window-removed',
+                     Lang.bind(this, this._windowRemoved));
          }
  	},
  
@@ -465,7 +494,34 @@ const AppMenuButton = new Lang.Class({
  		}
  
  		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
- 	}
+ 	},
+
+    /** Add a 'destroy' method that disconnects all the signals
+     * (the actual AppMenu.Button class in panel.js doesn't do this!)
+     */
+    destroy: function () {
+        // disconnect signals
+        this.disconnectTrackedSignals(this);
+
+        // any signals from _changeWorkspaces
+        this.disconnectTrackedSignals(this._wsSignals);
+
+        // any signals from _initWindow. _sync requires the _notifyTitleId.
+        let windows = global.get_window_actors();
+        for (let i = 0; i < windows.length; ++i) {
+            let win = windows[i];
+            if (win._notifyTitleId) {
+                win.disconnect(win._notifyTitleId);
+                delete win._notifyTitleId;
+            }
+        }
+
+        // any signals from _sync
+        this.disconnectTrackedSignals(this._targetAppSignals);
+
+        // Call parent destroy.
+        this.parent();
+    };
 
 });
 
@@ -489,6 +545,7 @@ function enable() {
 function disable() {
 	Main.panel._menus.removeMenu(newAppMenuButton.menu);
 	Main.panel._leftBox.remove_actor(newAppMenuButton.actor);
+    newAppMenuButton.destroy();
 
     let children = Main.panel._leftBox.get_children();
 	Main.panel._leftBox.insert_child_at_index(Main.panel._appMenu.actor, children.length);
