@@ -525,29 +525,31 @@ const AppMenuButton = new Lang.Class({
 });
 
 let newAppMenuButton;
+let appMenuBin;
 
 function init() {
 }
 
 function enable() {
-	if (!newAppMenuButton) {
-		newAppMenuButton = new AppMenuButton(Main.panel._menus);
-	}
+    if (!newAppMenuButton) {
+        newAppMenuButton = new AppMenuButton(Main.panel.statusArea.appMenu._menuManager);
+    }
 
-	Main.panel._leftBox.remove_actor(Main.panel._appMenu.actor);
+    appMenuBin = Main.panel.statusArea.appMenu.actor.get_parent()
+    Main.panel._leftBox.remove_actor(appMenuBin);
     let children = Main.panel._leftBox.get_children();
 
-	Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor, children.length);
-	//Main.panel._menus.addMenu(newAppMenuButton.menu); // added in _maybeSetMenu.
+    Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor.get_parent(), children.length);
+    //Main.panel._menus.addMenu(newAppMenuButton.menu); // added in _maybeSetMenu
 }
 
 function disable() {
-	Main.panel._menus.removeMenu(newAppMenuButton.menu);
-	Main.panel._leftBox.remove_actor(newAppMenuButton.actor);
+    Main.panel.menuManager.removeMenu(newAppMenuButton.menu);
+    Main.panel._leftBox.remove_actor(newAppMenuButton.actor.get_parent());
     newAppMenuButton.destroy();
 
     let children = Main.panel._leftBox.get_children();
-	Main.panel._leftBox.insert_child_at_index(Main.panel._appMenu.actor, children.length);
-
-	newAppMenuButton = null;
+    Main.panel._leftBox.insert_child_at_index(appMenuBin, children.length);
+    
+    newAppMenuButton = null;
 }
