@@ -21,6 +21,7 @@ const Shell = imports.gi.Shell;
 const Main = imports.ui.main;
 const Panel = imports.ui.panel;
 const Tweener = imports.ui.tweener;
+const Signals = imports.signals;
 const PopupMenu = imports.ui.popupMenu;
 const PanelMenu = imports.ui.panelMenu;
 const Overview = imports.ui.overview;
@@ -32,21 +33,32 @@ const PANEL_ICON_SIZE = 24;
  * are modified. https://extensions.gnome.org/extension/294/shellshape/
  * Signals are stored by the owner, storing both the target &
  * the id to clean up later.
+ * 
+ * Minor modifications by @emerino (we don't like obscure code)
  */
 function connectAndTrack(owner, subject, name, cb) {
     if (!owner.hasOwnProperty('_StatusTitleBar_bound_signals')) {
         owner._StatusTitleBar_bound_signals = [];
     }
-    owner._StatusTitleBar_bound_signals.push([subject, subject.connect(name, cb)]);
+
+    let id = subject.connect(name, cb);
+    owner._StatusTitleBar_bound_signals.push([subject, id]);
 }
 
 function disconnectTrackedSignals(owner) {
-    if (!owner || !owner._StatusTitleBar_bound_signals) { return; }
-    owner._StatusTitleBar_bound_signals.map(
+    if (!owner || !owner._StatusTitleBar_bound_signals) { 
+        return; 
+    }
+
+    owner._StatusTitleBar_bound_signals.forEach(
         function (sig) {
-            sig[0].disconnect(sig[1]);
+            let subject = sig[0];
+            let id = sig[1];
+            
+            subject.disconnect(id);
         }
     );
+        
     delete owner._StatusTitleBar_bound_signals;
 }
 
@@ -58,8 +70,8 @@ function disconnectTrackedSignals(owner) {
  * this menu also handles startup notification for it.  So when we
  * have an active startup notification, we switch modes to display that.
  */
-const AppMenuButton = new Lang.Class({
-    Name: 'AppMenuButton',
+const StatusTitleBarButton = new Lang.Class({
+    Name: 'StatusTitleBarButton',
     Extends: PanelMenu.Button,
 
     _init: function(menuManager) {
@@ -71,6 +83,8 @@ const AppMenuButton = new Lang.Class({
 
         this._menuManager = menuManager;
         this._targetApp = null;
+        this._appMenuNotifyId = 0;
+        this._actionGroupNotifyId = 0;
 
         let bin = new St.Bin({ name: 'windowTitle' });
         this.actor.add_actor(bin);
@@ -131,9 +145,9 @@ const AppMenuButton = new Lang.Class({
 
         /*** This is what this._sync() in the original _init is replaced with ***/
         connectAndTrack(this, global.window_manager, 'maximize',
-                Lang.bind(this, this._onMaximize));
+                Lang.bind(this, this._onRedimension));
         connectAndTrack(this, global.window_manager, 'unmaximize',
-                Lang.bind(this, this._onUnmaximize));
+                Lang.bind(this, this._onRedimension));
   
         connectAndTrack(this, global.screen, 'notify::n-workspaces',
                 Lang.bind(this, this._changeWorkspaces));
@@ -146,7 +160,7 @@ const AppMenuButton = new Lang.Class({
     },
 
     show: function() {
-        if (this._visible)
+        if (this._visible || Main.screenShield.locked)
             return;
 
         this._visible = true;
@@ -207,6 +221,7 @@ const AppMenuButton = new Lang.Class({
             return;
 
         this._stop = true;
+        this.actor.reactive = true;
         Tweener.addTween(this._spinner.actor,
                          { opacity: 0,
                            time: SPINNER_ANIMATION_TIME,
@@ -221,6 +236,7 @@ const AppMenuButton = new Lang.Class({
 
     startAnimation: function() {
         this._stop = false;
+        this.actor.reactive = false;
         this._spinner.actor.show();
     },
 
@@ -364,6 +380,14 @@ const AppMenuButton = new Lang.Class({
                                            transition: 'easeOutQuad' });
         }
 
+        if (targetApp == this._targetApp) {
+            if (targetApp && targetApp.get_state() != Shell.AppState.STARTING) {
+                this.stopAnimation();
+                this._maybeSetMenu();
+            }
+            return;
+        }
+
         /* Added */
 		let win = global.display.focus_window;
 
@@ -373,14 +397,6 @@ const AppMenuButton = new Lang.Class({
 
 		this._changeTitle(win, targetApp)
         /* End added */
-
-        if (targetApp == this._targetApp) {
-            if (targetApp && targetApp.get_state() != Shell.AppState.STARTING) {
-                this.stopAnimation();
-                this._maybeSetMenu();
-            }
-            return;
-        }
 
         this._spinner.actor.hide();
         if (this._iconBox.child != null)
@@ -436,7 +452,35 @@ const AppMenuButton = new Lang.Class({
         this.setMenu(menu);
         this._menuManager.addMenu(menu);
     },
+    
+ 	_changeWorkspaces: function() {
+        disconnectTrackedSignals(this._wsSignals);
+        
+ 		for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
+             let ws = global.screen.get_workspace_by_index(i);
+             
+             connectAndTrack(this._wsSignals, ws, 'window-added',
+                     Lang.bind(this, this._windowAddedOrRemoved));
+                     
+             connectAndTrack(this._wsSignals, ws, 'window-removed',
+                     Lang.bind(this, this._windowAddedOrRemoved));
+         }
+ 	},
+    
+ 	_windowAddedOrRemoved: function(metaWorkspace, metaWindow) {
+ 		if (metaWorkspace == global.screen.get_active_workspace()) {
+            this._sync();
+        }
+     },
  
+ 	_initWindow: function(win) {
+ 		if (win._notifyTitleId) {
+ 			win.disconnect(win._notifyTitleId);
+ 		}
+ 
+ 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
+ 	},
+
  	_onTitleChanged: function(win) {
  		if (win.has_focus()) {
  			let tracker = Shell.WindowTracker.get_default();
@@ -457,45 +501,11 @@ const AppMenuButton = new Lang.Class({
  		}
  	},
  
- 	_onMaximize: function(shellwm, actor) {
+ 	_onRedimension: function(shellwm, actor) {
  		let win = actor.get_meta_window();
  
  		this._onTitleChanged(win);
  	},
- 
- 	_onUnmaximize: function(shellwm, actor) {
- 		let win = actor.get_meta_window();
- 
- 		this._onTitleChanged(win);
- 	},
- 
- 	_windowAdded: function(metaWorkspace, metaWindow) {
- 		this._initWindow(metaWindow);
-     },
- 
-     _windowRemoved: function(metaWorkspace, metaWindow) {
- 		if (metaWorkspace == global.screen.get_active_workspace()) {
- 			this._sync();
- 		}
-     },
- 
- 	_changeWorkspaces: function() {
-        disconnectTrackedSignals(this._wsSignals);
- 		for ( let i=0; i < global.screen.n_workspaces; ++i ) {
-             let ws = global.screen.get_workspace_by_index(i);
-             connectAndTrack(this._wsSignals, ws, 'window-removed',
-                     Lang.bind(this, this._windowRemoved));
-         }
- 	},
- 
- 	_initWindow: function(win) {
- 		if (win._notifyTitleId) {
- 			win.disconnect(win._notifyTitleId);
- 		}
- 
- 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
- 	},
-
     /** Add a 'destroy' method that disconnects all the signals
      * (the actual AppMenu.Button class in panel.js doesn't do this!)
      */
@@ -524,32 +534,56 @@ const AppMenuButton = new Lang.Class({
     }
 });
 
-let newAppMenuButton;
-let appMenuBin;
+Signals.addSignalMethods(StatusTitleBarButton.prototype);
+
+
+const StatusTitleBar = new Lang.Class({
+    Name: 'StatusTitleBar',
+
+    _init: function(panel) {
+        this.panel = panel;
+        this.statusArea = panel.statusArea;
+        this.appMenu = this.statusArea.appMenu; // keep a reference to the default AppMenuButton
+        
+        this.button = null;
+    }, 
+
+    enable: function() {
+        this.button = new StatusTitleBarButton(this.appMenu._menuManager);
+        
+        this.panel._leftBox.remove_actor(this.appMenu.actor.get_parent())
+        
+        this.statusArea.appMenu = this.button;
+        let index = this.panel._leftBox.get_children().length;
+        this.panel._leftBox.insert_child_at_index(this.button.actor.get_parent(), index);
+    },
+
+    disable: function() {
+        this.panel.menuManager.removeMenu(this.button.menu);
+        this.panel._leftBox.remove_actor(this.button.actor.get_parent());
+        this.button.destroy();
+        
+        this.statusArea.appMenu = this.appMenu;
+        let index = Main.panel._leftBox.get_children().length;
+        Main.panel._leftBox.insert_child_at_index(this.appMenu.actor.get_parent(), index);
+        
+        this.button = null;
+    }
+});
+
+// lightweight object, acts only as a holder when ext disabled
+let statusTitleBar = null; 
 
 function init() {
+    let panel = Main.panel;
+    statusTitleBar = new StatusTitleBar(panel);
 }
 
 function enable() {
-    if (!newAppMenuButton) {
-        newAppMenuButton = new AppMenuButton(Main.panel.statusArea.appMenu._menuManager);
-    }
-
-    appMenuBin = Main.panel.statusArea.appMenu.actor.get_parent()
-    Main.panel._leftBox.remove_actor(appMenuBin);
-    let children = Main.panel._leftBox.get_children();
-
-    Main.panel._leftBox.insert_child_at_index(newAppMenuButton.actor.get_parent(), children.length);
-    //Main.panel._menus.addMenu(newAppMenuButton.menu); // added in _maybeSetMenu
+    statusTitleBar.enable();
 }
 
 function disable() {
-    Main.panel.menuManager.removeMenu(newAppMenuButton.menu);
-    Main.panel._leftBox.remove_actor(newAppMenuButton.actor.get_parent());
-    newAppMenuButton.destroy();
-
-    let children = Main.panel._leftBox.get_children();
-    Main.panel._leftBox.insert_child_at_index(appMenuBin, children.length);
+    statusTitleBar.disable();
     
-    newAppMenuButton = null;
 }
