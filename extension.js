@@ -157,7 +157,6 @@ const StatusTitleBarButton = new Lang.Class({
         // if actor is destroyed, we must disconnect.
         connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
 
-  
   		this._changeWorkspaces();
     },
 
@@ -461,20 +460,11 @@ const StatusTitleBarButton = new Lang.Class({
  		for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
              let ws = global.screen.get_workspace_by_index(i);
              
-             connectAndTrack(this._wsSignals, ws, 'window-added',
-                     Lang.bind(this, this._windowAddedOrRemoved));
-                     
              connectAndTrack(this._wsSignals, ws, 'window-removed',
-                     Lang.bind(this, this._windowAddedOrRemoved));
+                     Lang.bind(this, this._sync));
          }
  	},
-    
- 	_windowAddedOrRemoved: function(metaWorkspace, metaWindow) {
- 		if (metaWorkspace == global.screen.get_active_workspace()) {
-            this._sync();
-        }
-     },
- 
+
  	_initWindow: function(win) {
  		if (win._notifyTitleId) {
  			win.disconnect(win._notifyTitleId);
@@ -551,7 +541,7 @@ const StatusTitleBar = new Lang.Class({
     }, 
 
     enable: function() {
-        this.button = new StatusTitleBarButton(this.appMenu._menuManager);
+        this.button = new StatusTitleBarButton(this.panel.menuManager);
         
         this.panel._leftBox.remove_actor(this.appMenu.actor.get_parent())
         
