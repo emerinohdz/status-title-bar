@@ -1,6 +1,8 @@
 /**
  * StatusTitleBar extension
- * v0.2
+ * @autor: emerino <emerino at gmail dot com>
+
+ * Some code reused (and some stolen) from ui.panel script.
  *
  * This extension replaces the original AppMenuButton from the
  * gnome-shell panel with a new AppMenuButton that shows the
