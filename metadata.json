@@ -7,7 +7,8 @@
 		"3.2.1",
         "3.4",
         "3.4.1",
-        "3.6"
+        "3.6",
+        "3.8"
 	], 
 	"description": "Shows the title of windows in the status bar. FOR BEST RESULTS, USE THE Extend left box EXTENSION TO MAKE THE TITLE TAKE THE WHOLE AVAILABLE SPACE IN THE STATUS BAR",
     "version": 1,
