@@ -2,11 +2,6 @@
 	"uuid": "StatusTitleBar@devpower.org", 
 	"name": "Status Title Bar", 
 	"shell-version": [
-		"3.2", 
-		"3.2.0", 
-		"3.2.1",
-        "3.4",
-        "3.4.1",
         "3.6",
         "3.8"
 	], 
