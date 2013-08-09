@@ -384,6 +384,11 @@ const StatusTitleBarButton = new Lang.Class({
         if (targetApp == this._targetApp) {
             if (targetApp && targetApp.get_state() != Shell.AppState.STARTING) {
                 this.stopAnimation();
+
+                let win = global.display.focus_window;
+                if (!win._notifyTitleId) { this._initWindow(win); }
+                this._changeTitle(win, targetApp);
+
                 this._maybeSetMenu();
             }
             return;
