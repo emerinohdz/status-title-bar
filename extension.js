@@ -56,11 +56,11 @@ function disconnectTrackedSignals(owner) {
         function (sig) {
             let subject = sig[0];
             let id = sig[1];
-            
+
             subject.disconnect(id);
         }
     );
-        
+
     delete owner._StatusTitleBar_bound_signals;
 }
 
@@ -131,7 +131,7 @@ const StatusTitleBarButton = new Lang.Class({
         this._stop = true;
 
         this._spinner = new Panel.AnimatedIcon('process-working.svg',
-                                         PANEL_ICON_SIZE);
+                                               PANEL_ICON_SIZE);
         this._container.add_actor(this._spinner.actor);
         this._spinner.actor.lower_bottom();
 
@@ -150,14 +150,14 @@ const StatusTitleBarButton = new Lang.Class({
                 Lang.bind(this, this._onRedimension));
         connectAndTrack(this, global.window_manager, 'unmaximize',
                 Lang.bind(this, this._onRedimension));
-  
+
         connectAndTrack(this, global.screen, 'notify::n-workspaces',
                 Lang.bind(this, this._changeWorkspaces));
 
         // if actor is destroyed, we must disconnect.
         connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
 
-  		this._changeWorkspaces();
+        this._changeWorkspaces();
     },
 
     show: function() {
@@ -197,8 +197,8 @@ const StatusTitleBarButton = new Lang.Class({
                            transition: 'easeOutQuad',
                            onComplete: function() {
                                this.actor.hide();
-                           },
-                           onCompleteScope: this });
+                         },
+                         onCompleteScope: this });
     },
 
     _onIconBoxStyleChanged: function() {
@@ -463,55 +463,55 @@ const StatusTitleBarButton = new Lang.Class({
         this.setMenu(menu);
         this._menuManager.addMenu(menu);
     },
-    
- 	_changeWorkspaces: function() {
+
+    _changeWorkspaces: function() {
         disconnectTrackedSignals(this._wsSignals);
-        
- 		for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
-             let ws = global.screen.get_workspace_by_index(i);
-             
-             connectAndTrack(this._wsSignals, ws, 'window-removed',
-                     Lang.bind(this, this._sync));
-         }
- 	},
 
- 	_initWindow: function(win) {
- 		if (win._notifyTitleId) {
- 			win.disconnect(win._notifyTitleId);
- 		}
- 
- 		win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
- 	},
+        for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
+            let ws = global.screen.get_workspace_by_index(i);
 
- 	_onTitleChanged: function(win) {
- 		if (win.has_focus()) {
- 			let tracker = Shell.WindowTracker.get_default();
- 			let app = tracker.get_window_app(win);
- 
- 			this._changeTitle(win, app);
- 		}
- 	},
- 
- 	_changeTitle: function(win, app) {
- 		this._label.setText("");
- 		let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
- 
- 		if (win.get_maximized() == maximizedFlags) {
- 			this._label.setText(win.title);
- 		} else {
- 			this._label.setText(app.get_name());
- 		}
- 	},
+            connectAndTrack(this._wsSignals, ws, 'window-removed',
+                Lang.bind(this, this._sync));
+        }
+    },
+
+    _initWindow: function(win) {
+        if (win._notifyTitleId) {
+            win.disconnect(win._notifyTitleId);
+        }
+
+        win._notifyTitleId = win.connect("notify::title", Lang.bind(this, this._onTitleChanged));
+    },
+
+    _onTitleChanged: function(win) {
+        if (win.has_focus()) {
+            let tracker = Shell.WindowTracker.get_default();
+            let app = tracker.get_window_app(win);
+
+            this._changeTitle(win, app);
+        }
+    },
+
+    _changeTitle: function(win, app) {
+        this._label.setText("");
+        let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
+
+        if (win.get_maximized() == maximizedFlags) {
+            this._label.setText(win.title);
+        } else {
+            this._label.setText(app.get_name());
+        }
+    },
 
     _emptyTitle: function() {
         this._label.setText("");
     },
- 
- 	_onRedimension: function(shellwm, actor) {
- 		let win = actor.get_meta_window();
- 
- 		this._onTitleChanged(win);
- 	},
+
+    _onRedimension: function(shellwm, actor) {
+        let win = actor.get_meta_window();
+
+        this._onTitleChanged(win);
+    },
     /** Add a 'destroy' method that disconnects all the signals
      * (the actual AppMenu.Button class in panel.js doesn't do this!)
      */
@@ -542,7 +542,6 @@ const StatusTitleBarButton = new Lang.Class({
 
 Signals.addSignalMethods(StatusTitleBarButton.prototype);
 
-
 const StatusTitleBar = new Lang.Class({
     Name: 'StatusTitleBar',
 
@@ -550,15 +549,15 @@ const StatusTitleBar = new Lang.Class({
         this.panel = panel;
         this.statusArea = panel.statusArea;
         this.appMenu = this.statusArea.appMenu; // keep a reference to the default AppMenuButton
-        
+
         this.button = null;
     }, 
 
     enable: function() {
         this.button = new StatusTitleBarButton(this.panel.menuManager);
-        
+
         this.panel._leftBox.remove_actor(this.appMenu.actor.get_parent())
-        
+
         this.statusArea.appMenu = this.button;
         let index = this.panel._leftBox.get_children().length;
         this.panel._leftBox.insert_child_at_index(this.button.actor.get_parent(), index);
@@ -568,11 +567,11 @@ const StatusTitleBar = new Lang.Class({
         this.panel.menuManager.removeMenu(this.button.menu);
         this.panel._leftBox.remove_actor(this.button.actor.get_parent());
         this.button.destroy();
-        
+
         this.statusArea.appMenu = this.appMenu;
         let index = Main.panel._leftBox.get_children().length;
         Main.panel._leftBox.insert_child_at_index(this.appMenu.actor.get_parent(), index);
-        
+
         this.button = null;
     }
 });
@@ -591,5 +590,5 @@ function enable() {
 
 function disable() {
     statusTitleBar.disable();
-    
+
 }
