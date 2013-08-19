@@ -395,28 +395,33 @@ const StatusTitleBarButton = new Lang.Class({
         }
 
         /* Added */
-		let win = global.display.focus_window;
+        let win = global.display.focus_window;
 
-		if (!win._notifyTitleId) {
-			this._initWindow(win);
-		}
+        /* There are some (unknown) cases where there is no available focused window
+         * even though there is a focused app. Handle that. */
+        if(win == null) {
+            this._emptyTitle();
+        } else {
+            if (!win._notifyTitleId) {
+                this._initWindow(win);
+            }
 
-		this._changeTitle(win, targetApp)
-        /* End added */
+            this._changeTitle(win, targetApp)
+            /* End added */
 
-        this._spinner.actor.hide();
-        if (this._iconBox.child != null)
-            this._iconBox.child.destroy();
-        this._iconBox.hide();
-        //this._label.setText('');
+            this._spinner.actor.hide();
+            if (this._iconBox.child != null)
+                this._iconBox.child.destroy();
+            this._iconBox.hide();
+            //this._label.setText('');
 
-        disconnectTrackedSignals(this._targetAppSignals);
-        if (targetApp) {
-            connectAndTrack(this._targetAppSignals, targetApp,
-                'notify::menu', Lang.bind(this, this._sync));
-            connectAndTrack(this._targetAppSignals, targetApp,
-                'notify::action-group', Lang.bind(this, this._sync));
-        }
+            disconnectTrackedSignals(this._targetAppSignals);
+            if (targetApp) {
+                connectAndTrack(this._targetAppSignals, targetApp,
+                    'notify::menu', Lang.bind(this, this._sync));
+                connectAndTrack(this._targetAppSignals, targetApp,
+                    'notify::action-group', Lang.bind(this, this._sync));
+            }
 
         this._targetApp = targetApp;
         let icon = targetApp.get_faded_icon(2 * PANEL_ICON_SIZE);
@@ -497,6 +502,10 @@ const StatusTitleBarButton = new Lang.Class({
  			this._label.setText(app.get_name());
  		}
  	},
+
+    _emptyTitle: function() {
+        this._label.setText("");
+    },
  
  	_onRedimension: function(shellwm, actor) {
  		let win = actor.get_meta_window();
