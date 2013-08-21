@@ -422,6 +422,7 @@ const StatusTitleBarButton = new Lang.Class({
                 connectAndTrack(this._targetAppSignals, targetApp,
                     'notify::action-group', Lang.bind(this, this._sync));
             }
+        }
 
         this._targetApp = targetApp;
         let icon = targetApp.get_faded_icon(2 * PANEL_ICON_SIZE);
