@@ -425,7 +425,7 @@ const StatusTitleBarButton = new Lang.Class({
         }
 
         this._targetApp = targetApp;
-        let icon = targetApp.get_faded_icon(2 * PANEL_ICON_SIZE);
+        let icon = targetApp.get_faded_icon(2 * PANEL_ICON_SIZE, this._iconBox.text_direction);
 
         //this._label.setText(targetApp.get_name());
         this.setName(targetApp.get_name());
