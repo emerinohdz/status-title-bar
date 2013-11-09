@@ -2,8 +2,6 @@
  * StatusTitleBar extension
  * @autor: emerino <emerino at gmail dot com>
 
- * Some code reused (and some stolen) from ui.panel script.
- *
  * This extension replaces the original AppMenuButton from the
  * gnome-shell panel with a new AppMenuButton that shows the
  * title of the current focused window, when maximized, instead 
