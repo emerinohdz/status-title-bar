@@ -2,8 +2,8 @@
 	"uuid": "StatusTitleBar@devpower.org", 
 	"name": "Status Title Bar", 
 	"shell-version": [
-        "3.6",
-        "3.8"
+        "3.8",
+        "3.10"
 	], 
 	"description": "Shows the title of windows in the status bar. FOR BEST RESULTS, USE THE Extend left box EXTENSION TO MAKE THE TITLE TAKE THE WHOLE AVAILABLE SPACE IN THE STATUS BAR",
     "version": 1,
