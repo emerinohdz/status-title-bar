@@ -86,7 +86,7 @@ const StatusTitleBarButton = new Lang.Class({
                 Lang.bind(this, this._onRedimension));
 
         connectAndTrack(this, global.screen, 'notify::n-workspaces',
-                Lang.bind(this, this._changeWorkspaces));
+                Lang.bind(this, this._workspacesChanged));
 
         connectAndTrack(this, global.display, "notify::focus-window",
                 Lang.bind(this, this._sync));
@@ -94,7 +94,7 @@ const StatusTitleBarButton = new Lang.Class({
         // if actor is destroyed, we must disconnect.
         connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
 
-        this._changeWorkspaces();
+        this._workspacesChanged();
     },
 
     _sync: function() {
@@ -116,7 +116,7 @@ const StatusTitleBarButton = new Lang.Class({
         /* End added */
     },
 
-    _changeWorkspaces: function() {
+    _workspacesChanged: function() {
         disconnectTrackedSignals(this._wsSignals);
 
         for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
@@ -138,7 +138,7 @@ const StatusTitleBarButton = new Lang.Class({
     _onTitleChanged: function(win) {
         if (win.has_focus()) {
             let tracker = Shell.WindowTracker.get_default();
-            let app = tracker.get_window_app(win);
+            let app = this._findTargetApp();
 
             this._changeTitle(win, app);
         }
@@ -150,7 +150,7 @@ const StatusTitleBarButton = new Lang.Class({
 
         if (win.get_maximized() == maximizedFlags) {
             this._label.setText(win.title);
-        } else {
+        } else if (app) {
             this._label.setText(app.get_name());
         }
     },
@@ -168,7 +168,7 @@ const StatusTitleBarButton = new Lang.Class({
         // disconnect signals
         disconnectTrackedSignals(this);
 
-        // any signals from _changeWorkspaces
+        // any signals from _workspacesChanged
         disconnectTrackedSignals(this._wsSignals);
 
 		// clear window signals
@@ -179,22 +179,16 @@ const StatusTitleBarButton = new Lang.Class({
     },
 
 	_clearWindowsSignals: function() {
-		// we need to iterate each workspace to get to all the MetaWindows
-		// there was a bug here were we where retrieving the WindowActors instead,
-		// that was causing problems when gs was locked
-        for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
-            let ws = global.screen.get_workspace_by_index(i);
+        let windows = global.get_window_actors();
 
-			// any signals from _initWindow. 
-			let windows = ws.list_windows();
-			for (let i = 0; i < windows.length; ++i) {
-				let win = windows[i];
-				if (win._notifyTitleId) {
-					win.disconnect(win._notifyTitleId);
-				}
+        for (let i = 0; i < windows.length; ++i) {
+            // we need the MetaWindow here!
+            let win = windows[i].get_meta_window();
+            if (win._notifyTitleId) {
+                win.disconnect(win._notifyTitleId);
+            }
 
-				win._notifyTitleId = null;
-			}
+            win._notifyTitleId = null;
         }
 
 	},
