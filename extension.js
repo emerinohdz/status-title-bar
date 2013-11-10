@@ -76,11 +76,11 @@ const StatusTitleBarButton = new Lang.Class({
     _init: function(panel) {
         this.parent(panel);
 
-        this._targetIsCurrent = false;
-
         /*** Holders for local tracked signals ***/
         this._wsSignals = {};
         //this._targetAppSignals = {};
+
+		this._cleanWindowsIds();
 
         connectAndTrack(this, global.window_manager, 'maximize',
                 Lang.bind(this, this._onRedimension));
@@ -166,9 +166,6 @@ const StatusTitleBarButton = new Lang.Class({
 
         this._onTitleChanged(win);
     },
-    /** Add a 'destroy' method that disconnects all the signals
-     * (the actual AppMenu.Button class in panel.js doesn't do this!)
-     */
     destroy: function () {
         // disconnect signals
         disconnectTrackedSignals(this);
@@ -176,19 +173,34 @@ const StatusTitleBarButton = new Lang.Class({
         // any signals from _changeWorkspaces
         disconnectTrackedSignals(this._wsSignals);
 
-        // any signals from _initWindow. _sync requires the _notifyTitleId.
-        let windows = global.get_window_actors();
-        for (let i = 0; i < windows.length; ++i) {
-            let win = windows[i];
-            if (win._notifyTitleId) {
-                win.disconnect(win._notifyTitleId);
-                delete win._notifyTitleId;
-            }
-        }
+		// clear window signals
+		this._clearWindowsSignals();
 
         // Call parent destroy.
         this.parent();
-    }
+    },
+
+	_clearWindowsSignals: function() {
+		// we need to iterate each workspace to get to all the MetaWindows
+		// there was a bug here were we where retrieving the WindowActors instead,
+		// that was causing problems when gs was locked
+        for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
+            let ws = global.screen.get_workspace_by_index(i);
+
+			// any signals from _initWindow. 
+			let windows = ws.list_windows();
+			for (let i = 0; i < windows.length; ++i) {
+				let win = windows[i];
+				if (win._notifyTitleId) {
+					win.disconnect(win._notifyTitleId);
+				}
+
+				win._notifyTitleId = null;
+			}
+        }
+
+	},
+
 });
 
 Signals.addSignalMethods(StatusTitleBarButton.prototype);
@@ -196,43 +208,36 @@ Signals.addSignalMethods(StatusTitleBarButton.prototype);
 const StatusTitleBar = new Lang.Class({
     Name: 'StatusTitleBar',
 
-    _init: function(panel) {
-        this.panel = panel;
-        this.statusArea = panel.statusArea;
-        this.appMenu = this.statusArea.appMenu; // keep a reference to the default AppMenuButton
-
-        this.button = null;
+    _init: function() {
     }, 
 
     enable: function() {
-        this.button = new StatusTitleBarButton(this.panel);
-        
-        this.panel._leftBox.remove_actor(this.appMenu.actor.get_parent())
-
-        this.statusArea.appMenu = this.button;
-        let index = this.panel._leftBox.get_children().length;
-        this.panel._leftBox.insert_child_at_index(this.button.actor.get_parent(), index);
+		this._replaceAppMenu(new StatusTitleBarButton(Main.panel));
     },
 
     disable: function() {
-        this.panel.menuManager.removeMenu(this.button.menu);
-        this.panel._leftBox.remove_actor(this.button.actor.get_parent());
-        this.button.destroy();
+		this._replaceAppMenu(new Panel.AppMenuButton(Main.panel));
+    },
 
-        this.statusArea.appMenu = this.appMenu;
-        let index = Main.panel._leftBox.get_children().length;
-        Main.panel._leftBox.insert_child_at_index(this.appMenu.actor.get_parent(), index);
+	_replaceAppMenu: function(appMenu) {
+		let panel = Main.panel;
+		let statusArea = panel.statusArea;
 
-        this.button = null;
-    }
+		let oldAppMenu = statusArea.appMenu;
+		panel._leftBox.remove_actor(oldAppMenu.actor.get_parent());
+		oldAppMenu.destroy();
+
+		statusArea.appMenu = appMenu;
+        let index = panel._leftBox.get_children().length;
+        panel._leftBox.insert_child_at_index(appMenu.actor.get_parent(), index);
+	}
 });
 
 // lightweight object, acts only as a holder when ext disabled
 let statusTitleBar = null; 
 
 function init() {
-    let panel = Main.panel;
-    statusTitleBar = new StatusTitleBar(panel);
+    statusTitleBar = new StatusTitleBar();
 }
 
 function enable() {
