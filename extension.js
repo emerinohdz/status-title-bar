@@ -80,8 +80,6 @@ const StatusTitleBarButton = new Lang.Class({
         this._wsSignals = {};
         //this._targetAppSignals = {};
 
-		this._cleanWindowsIds();
-
         connectAndTrack(this, global.window_manager, 'maximize',
                 Lang.bind(this, this._onRedimension));
         connectAndTrack(this, global.window_manager, 'unmaximize',
