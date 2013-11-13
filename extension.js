@@ -80,10 +80,8 @@ const StatusTitleBarButton = new Lang.Class({
             this._initWindow(win);
         }
 
-        let tracker = Shell.WindowTracker.get_default();
-        let app = tracker.get_window_app(win);
-
-        this._setTitle(win, app)
+        let targetApp = this._findTargetApp();
+        this._setTitle(win, targetApp)
         /* End added */
     },
 
@@ -110,7 +108,7 @@ const StatusTitleBarButton = new Lang.Class({
     _onWindowTitleChanged: function(win) {
         if (win.has_focus()) {
             let tracker = Shell.WindowTracker.get_default();
-            let app = tracker.get_window_app(win);
+            let app = this._findTargetApp();
 
             this._setTitle(win, app);
         }
@@ -196,6 +194,23 @@ const StatusTitleBar = new Lang.Class({
         panel._leftBox.insert_child_at_index(appMenu.actor.get_parent(), index);
     }
 });
+
+// legacy support
+if (!Panel.AppMenuButton.prototype.hasOwnProperty("_findTargetApp")) {
+    StatusTitleBarButton.prototype._findTargetApp = function() {
+        let workspace = global.screen.get_active_workspace();
+        let tracker = Shell.WindowTracker.get_default();
+        let focusedApp = tracker.focus_app;
+        if (focusedApp && focusedApp.is_on_workspace(workspace))
+            return focusedApp;
+
+        for (let i = 0; i < this._startingApps.length; i++)
+            if (this._startingApps[i].is_on_workspace(workspace))
+                return this._startingApps[i];
+
+        return null;
+    }
+} 
 
 // lightweight object, acts only as a holder when ext disabled
 let statusTitleBar = null; 
