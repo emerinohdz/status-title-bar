@@ -28,39 +28,8 @@ const Overview = imports.ui.overview;
 
 const PANEL_ICON_SIZE = 24;
 
-/** Utility functions **/
-/* Note : credit to the shellshape extension, from which these functions
- * are modified. https://extensions.gnome.org/extension/294/shellshape/
- * Signals are stored by the owner, storing both the target &
- * the id to clean up later.
- * 
- * Minor modifications by @emerino (we don't like obscure code)
- */
-function connectAndTrack(owner, subject, name, cb) {
-    if (!owner.hasOwnProperty('_StatusTitleBar_bound_signals')) {
-        owner._StatusTitleBar_bound_signals = [];
-    }
-
-    let id = subject.connect(name, cb);
-    owner._StatusTitleBar_bound_signals.push([subject, id]);
-}
-
-function disconnectTrackedSignals(owner) {
-    if (!owner || !owner._StatusTitleBar_bound_signals) { 
-        return; 
-    }
-
-    owner._StatusTitleBar_bound_signals.forEach(
-        function (sig) {
-            let subject = sig[0];
-            let id = sig[1];
-
-            subject.disconnect(id);
-        }
-    );
-
-    delete owner._StatusTitleBar_bound_signals;
-}
+const ExtensionUtils = imports.misc.extensionUtils;
+const Utils = ExtensionUtils.getCurrentExtension().imports.utils;
 
 /**
  * StatusTitleBarButton
@@ -80,19 +49,19 @@ const StatusTitleBarButton = new Lang.Class({
         this._wsSignals = {};
         //this._targetAppSignals = {};
 
-        connectAndTrack(this, global.window_manager, 'maximize',
+        Utils.connectAndTrack(this, global.window_manager, 'maximize',
                 Lang.bind(this, this._onRedimension));
-        connectAndTrack(this, global.window_manager, 'unmaximize',
+        Utils.connectAndTrack(this, global.window_manager, 'unmaximize',
                 Lang.bind(this, this._onRedimension));
 
-        connectAndTrack(this, global.screen, 'notify::n-workspaces',
+        Utils.connectAndTrack(this, global.screen, 'notify::n-workspaces',
                 Lang.bind(this, this._workspacesChanged));
 
-        connectAndTrack(this, global.display, "notify::focus-window",
+        Utils.connectAndTrack(this, global.display, "notify::focus-window",
                 Lang.bind(this, this._sync));
 
         // if actor is destroyed, we must disconnect.
-        connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
+        Utils.connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
 
         this._workspacesChanged();
     },
@@ -117,12 +86,12 @@ const StatusTitleBarButton = new Lang.Class({
     },
 
     _workspacesChanged: function() {
-        disconnectTrackedSignals(this._wsSignals);
+        Utils.disconnectTrackedSignals(this._wsSignals);
 
         for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
             let ws = global.screen.get_workspace_by_index(i);
 
-            connectAndTrack(this._wsSignals, ws, 'window-removed',
+            Utils.connectAndTrack(this._wsSignals, ws, 'window-removed',
                     Lang.bind(this, this._sync));
         }
     },
@@ -167,10 +136,10 @@ const StatusTitleBarButton = new Lang.Class({
     },
     destroy: function () {
         // disconnect signals
-        disconnectTrackedSignals(this);
+        Utils.disconnectTrackedSignals(this);
 
         // any signals from _workspacesChanged
-        disconnectTrackedSignals(this._wsSignals);
+        Utils.disconnectTrackedSignals(this._wsSignals);
 
 		// clear window signals
 		this._clearWindowsSignals();
