@@ -111,8 +111,10 @@ const StatusTitleBarButton = new Lang.Class({
 			this._initWindow(win);
 		}
 
-        let targetApp = this._findTargetApp();
-		this._setTitle(win, targetApp)
+        let tracker = Shell.WindowTracker.get_default();
+        let app = tracker.get_window_app(win);
+
+        this._setTitle(win, app)
         /* End added */
     },
 
@@ -139,7 +141,7 @@ const StatusTitleBarButton = new Lang.Class({
     _onWindowTitleChanged: function(win) {
         if (win.has_focus()) {
             let tracker = Shell.WindowTracker.get_default();
-            let app = this._findTargetApp();
+            let app = tracker.get_window_app(win);
 
             this._setTitle(win, app);
         }
