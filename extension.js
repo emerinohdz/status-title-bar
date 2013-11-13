@@ -68,7 +68,7 @@ const StatusTitleBarButton = new Lang.Class({
 
     _sync: function() {
         /* Added */
-		let win = global.display.focus_window;
+        let win = global.display.focus_window;
 
         if (!win) {
             return;
@@ -76,12 +76,14 @@ const StatusTitleBarButton = new Lang.Class({
 
         this.parent();
         
-		if (!win._notifyTitleId) {
-			this._initWindow(win);
-		}
+        if (!win._notifyTitleId) {
+            this._initWindow(win);
+        }
 
-        let targetApp = this._findTargetApp();
-		this._setTitle(win, targetApp)
+        let tracker = Shell.WindowTracker.get_default();
+        let app = tracker.get_window_app(win);
+
+        this._setTitle(win, app)
         /* End added */
     },
 
@@ -108,7 +110,7 @@ const StatusTitleBarButton = new Lang.Class({
     _onWindowTitleChanged: function(win) {
         if (win.has_focus()) {
             let tracker = Shell.WindowTracker.get_default();
-            let app = this._findTargetApp();
+            let app = tracker.get_window_app(win);
 
             this._setTitle(win, app);
         }
@@ -141,14 +143,14 @@ const StatusTitleBarButton = new Lang.Class({
         // any signals from _workspacesChanged
         Utils.disconnectTrackedSignals(this._wsSignals);
 
-		// clear window signals
-		this._clearWindowsSignals();
+        // clear window signals
+        this._clearWindowsSignals();
 
         // Call parent destroy.
         this.parent();
     },
 
-	_clearWindowsSignals: function() {
+    _clearWindowsSignals: function() {
         let windows = global.get_window_actors();
 
         for (let i = 0; i < windows.length; ++i) {
@@ -161,7 +163,7 @@ const StatusTitleBarButton = new Lang.Class({
             win._notifyTitleId = null;
         }
 
-	},
+    },
 
 });
 
@@ -174,25 +176,25 @@ const StatusTitleBar = new Lang.Class({
     }, 
 
     enable: function() {
-		this._replaceAppMenu(new StatusTitleBarButton(Main.panel));
+        this._replaceAppMenu(new StatusTitleBarButton(Main.panel));
     },
 
     disable: function() {
-		this._replaceAppMenu(new Panel.AppMenuButton(Main.panel));
+        this._replaceAppMenu(new Panel.AppMenuButton(Main.panel));
     },
 
-	_replaceAppMenu: function(appMenu) {
-		let panel = Main.panel;
-		let statusArea = panel.statusArea;
+    _replaceAppMenu: function(appMenu) {
+        let panel = Main.panel;
+        let statusArea = panel.statusArea;
 
-		let oldAppMenu = statusArea.appMenu;
-		panel._leftBox.remove_actor(oldAppMenu.actor.get_parent());
-		oldAppMenu.destroy();
+        let oldAppMenu = statusArea.appMenu;
+        panel._leftBox.remove_actor(oldAppMenu.actor.get_parent());
+        oldAppMenu.destroy();
 
-		statusArea.appMenu = appMenu;
+        statusArea.appMenu = appMenu;
         let index = panel._leftBox.get_children().length;
         panel._leftBox.insert_child_at_index(appMenu.actor.get_parent(), index);
-	}
+    }
 });
 
 // lightweight object, acts only as a holder when ext disabled
