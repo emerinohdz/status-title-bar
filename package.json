@@ -1,0 +1,11 @@
+{
+  "name": "status-title-bar",
+  "description": "Gnome-Shell extension that shows the focused window titlebar in the status panel.",
+  "version": "1.0.0",
+  "devDependencies": {
+    "gulp": "^3.6.0",
+    "gulp-clean": "^0.2.4",
+    "gulp-util": "^2.2.14",
+    "gulp-zip": "^0.3.4"
+  }
+}

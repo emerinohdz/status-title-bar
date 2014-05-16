@@ -15,11 +15,12 @@ For best results, use the extension
 Installation
 ------------
 
-    cd ~/.local/share/gnome-shell/extensions
-    git clone git@github.com:emerinohdz/StatusTitleBar.git
-    mv StatusTitleBar StatusTitleBar@devpower.org 
+You need to have NodeJS (npm) for this to work:
+
+    git clone git@github.com:emerinohdz/StatusTitleBar.git && cd StatusTitleBar
+    npm install && gulp install
 
 Author
 ------
 
-[Edgar Merino](https://github.com/emerinohdz) (donvodka at gmail dot com)
+[Edgar Merino](https://github.com/emerinohdz) (emerino at nuevebit dot com)

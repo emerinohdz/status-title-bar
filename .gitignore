@@ -1,2 +1,15 @@
 # skip vim .swp files
 *.swp
+*.swo
+
+# log files
+*.log
+
+# dist files
+/dist/
+
+# build files
+/build/
+
+# node deps
+/node_modules/
