@@ -16,11 +16,11 @@ First step is to download source code and build dependencies:
 
 There are two ways to install from sources:
 
-* Install directly to ~/.local/share/gnome-shell/extensions
+Install directly to ~/.local/share/gnome-shell/extensions
 
     node_modules/.bin/gulp install
 
-* Create ZIP file in dist/ for installation through Gnome Tweak Tool
+Create ZIP file in dist/ for installation through Gnome Tweak Tool
 
     node_modules/.bin/gulp dist
 
