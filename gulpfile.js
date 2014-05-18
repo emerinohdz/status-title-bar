@@ -20,6 +20,8 @@ var config = {
     distDir: path.join(__dirname, "dist")
 };
 
+//extension metadata
+var metadata = JSON.parse(fs.readFileSync("src/metadata.json"));
 
 /**
  * Clean dist dir
@@ -34,7 +36,7 @@ gulp.task("clean", function() {
  */
 gulp.task("dist", function() {
     return gulp.src(config.srcDir + "/*")
-            .pipe(zip("extension.zip"))
+            .pipe(zip(metadata.uuid + ".zip"))
             .pipe(gulp.dest(config.distDir));
 });
 
@@ -42,7 +44,6 @@ gulp.task("dist", function() {
  * Install extension locally.
  */
 gulp.task("install", function() {
-    var metadata = JSON.parse(fs.readFileSync("src/metadata.json"));
     var dest = path.join(process.env.HOME, ".local/share/gnome-shell/extensions/" + metadata.uuid);
 
     return gulp.src(config.srcDir + "/*")
