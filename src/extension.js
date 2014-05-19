@@ -70,12 +70,12 @@ const StatusTitleBarButton = new Lang.Class({
         /* Added */
         let win = global.display.focus_window;
 
+        this.parent();
+        
         if (!win) {
             return;
         }
 
-        this.parent();
-        
         if (!win._notifyTitleId) {
             this._initWindow(win);
         }
@@ -123,10 +123,6 @@ const StatusTitleBarButton = new Lang.Class({
         } else if (app) {
             this._label.setText(app.get_name());
         }
-    },
-
-    _emptyTitle: function() {
-        this._label.setText("");
     },
 
     _onRedimension: function(shellwm, actor) {
