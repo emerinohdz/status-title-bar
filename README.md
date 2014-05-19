@@ -16,7 +16,7 @@ First step is to download source code and build dependencies:
 
 There are two ways to install from sources:
 
-Install directly to ~/.local/share/gnome-shell/extensions
+Install directly to ~/.local/share/gnome-shell/extensions and enable extension
 
     node_modules/.bin/gulp install
 
