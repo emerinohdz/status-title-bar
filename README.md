@@ -11,7 +11,7 @@ not maximized, then it falls back to showing the focused applications name.
 
 First step is to download source code and build dependencies:
 
-    git clone git@github.com:emerinohdz/PowerAltTab.git && cd PowerAltTab
+    git clone git@github.com:emerinohdz/status-title-bar.git && cd status-title-bar
     npm install
 
 There are two ways to install from sources:
