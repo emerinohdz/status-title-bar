@@ -53,6 +53,8 @@ const StatusTitleBarButton = new Lang.Class({
                 Lang.bind(this, this._onRedimension));
         Utils.connectAndTrack(this, global.window_manager, 'unmaximize',
                 Lang.bind(this, this._onRedimension));
+        Utils.connectAndTrack(this, global.window_manager, 'destroy',
+                Lang.bind(this, this._onWindowDestroy));
 
         Utils.connectAndTrack(this, global.screen, 'notify::n-workspaces',
                 Lang.bind(this, this._workspacesChanged));
@@ -61,17 +63,16 @@ const StatusTitleBarButton = new Lang.Class({
                 Lang.bind(this, this._sync));
 
         // if actor is destroyed, we must disconnect.
-        Utils.connectAndTrack(this, this.actor, 'destroy', Lang.bind(this, this.destroy));
+        Utils.connectAndTrack(this, this.actor, 'destroy', 
+                Lang.bind(this, this.destroy));
 
         this._workspacesChanged();
     },
 
     _sync: function() {
-        /* Added */
-        let win = global.display.focus_window;
-
         this.parent();
-        
+
+        let win = global.display.focus_window;
         if (!win) {
             return;
         }
@@ -82,7 +83,6 @@ const StatusTitleBarButton = new Lang.Class({
 
         let targetApp = this._findTargetApp();
         this._setTitle(win, targetApp)
-        /* End added */
     },
 
     _workspacesChanged: function() {
@@ -107,7 +107,6 @@ const StatusTitleBarButton = new Lang.Class({
 
     _onWindowTitleChanged: function(win) {
         if (win.has_focus()) {
-            let tracker = Shell.WindowTracker.get_default();
             let app = this._findTargetApp();
 
             this._setTitle(win, app);
@@ -118,17 +117,19 @@ const StatusTitleBarButton = new Lang.Class({
         this._label.setText("");
         let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
 
-        if (win.get_maximized() == maximizedFlags) {
-            this._label.setText(win.title);
-        } else if (app) {
-            this._label.setText(app.get_name());
-        }
+        this._label.setText(win.title);
     },
 
     _onRedimension: function(shellwm, actor) {
         let win = actor.get_meta_window();
 
         this._onWindowTitleChanged(win);
+    },
+    _onWindowDestroy: function(shellwm, actor) {
+        let win = actor.get_meta_window();
+        this._clearWindowSignal(win);
+
+        //this._label.setText("");
     },
     destroy: function () {
         // disconnect signals
@@ -150,14 +151,17 @@ const StatusTitleBarButton = new Lang.Class({
         for (let i = 0; i < windows.length; ++i) {
             // we need the MetaWindow here!
             let win = windows[i].get_meta_window();
-            if (win._notifyTitleId) {
-                win.disconnect(win._notifyTitleId);
-            }
-
-            win._notifyTitleId = null;
+            this._clearWindowSignal(win);
         }
 
     },
+    _clearWindowSignal: function(win) {
+        if (win._notifyTitleId) {
+            win.disconnect(win._notifyTitleId);
+        }
+
+        win._notifyTitleId = null;
+    }
 
 });
 
