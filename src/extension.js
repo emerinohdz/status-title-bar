@@ -114,10 +114,14 @@ const StatusTitleBarButton = new Lang.Class({
     },
 
     _setTitle: function(win, app) {
-        this._label.setText("");
+        this._label.set_text("");
         let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
 
-        this._label.setText(win.title);
+        if (win.get_maximized() == maximizedFlags) {
+            this._label.set_text(win.title);
+        } else if (app) {
+            this._label.set_text(app.get_name());
+        }
     },
 
     _onRedimension: function(shellwm, actor) {
