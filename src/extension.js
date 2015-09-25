@@ -12,6 +12,7 @@
 
 const Atk = imports.gi.Atk;
 const Clutter = imports.gi.Clutter;
+const Config = imports.misc.config;
 const Lang = imports.lang;
 const Meta = imports.gi.Meta;
 const St = imports.gi.St;
@@ -26,6 +27,9 @@ const PopupMenu = imports.ui.popupMenu;
 const PanelMenu = imports.ui.panelMenu;
 const Overview = imports.ui.overview;
 
+const FLAGS_MAXED = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
+const MAJOR_VERSION = parseInt(Config.PACKAGE_VERSION.split('.')[0]);
+const MINOR_VERSION = parseInt(Config.PACKAGE_VERSION.split('.')[1]);
 const PANEL_ICON_SIZE = 24;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -49,10 +53,19 @@ const StatusTitleBarButton = new Lang.Class({
         this._wsSignals = {};
         //this._targetAppSignals = {};
 
-        Utils.connectAndTrack(this, global.window_manager, 'maximize',
-                Lang.bind(this, this._onRedimension));
-        Utils.connectAndTrack(this, global.window_manager, 'unmaximize',
-                Lang.bind(this, this._onRedimension));
+        // maximize and unmaximize removed and size-change added GS 3.17
+        if (MAJOR_VERSION == 3 && MINOR_VERSION < 17) {
+            Utils.connectAndTrack(this, global.window_manager, 'maximize',
+                    Lang.bind(this, this._onRedimension));
+            Utils.connectAndTrack(this, global.window_manager, 'unmaximize',
+                    Lang.bind(this, this._onRedimension));
+        } else {
+            Utils.connectAndTrack(this, global.window_manager, 'hide-tile-preview',
+                    Lang.bind(this, this._onHideTitlePreview));
+            Utils.connectAndTrack(this, global.window_manager, 'size-change',
+                    Lang.bind(this, this._onRedimension));
+        }
+
         Utils.connectAndTrack(this, global.window_manager, 'destroy',
                 Lang.bind(this, this._onWindowDestroy));
 
@@ -115,12 +128,23 @@ const StatusTitleBarButton = new Lang.Class({
 
     _setTitle: function(win, app) {
         this._label.set_text("");
-        let maximizedFlags = Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL;
 
-        if (win.get_maximized() == maximizedFlags) {
+        if (win.get_maximized() == FLAGS_MAXED) {
             this._label.set_text(win.title);
         } else if (app) {
             this._label.set_text(app.get_name());
+        }
+    },
+
+    // needed for maximize on window drag to top panel
+    _onHideTitlePreview: function(shellwm) {
+        let win = global.display.focus_window;
+
+        if (!win) {
+            return;
+        }
+        if (win.get_maximized() == FLAGS_MAXED && this._label.text != win.title) {
+            this._onWindowTitleChanged(win);
         }
     },
 
