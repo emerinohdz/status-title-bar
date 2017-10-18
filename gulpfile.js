@@ -17,7 +17,7 @@ var gulp = require("gulp");
 var clean = require('gulp-clean');
 
 //extension metadata
-var metadata = JSON.parse(fs.readFileSync("src/metadata.json"));
+var metadata = JSON.parse(fs.readFileSync("metadata.json"));
 
 // local config
 var config = {
@@ -47,7 +47,10 @@ gulp.task("clean", function() {
  * Create ZIP file for distribution to gse
  */
 gulp.task("dist", function() {
-    return gulp.src(config.srcDir + "/**/*")
+    return gulp.src([
+                "metadata.json",
+                config.srcDir + "/**/*"
+            ])
             .pipe(zip(metadata.uuid + ".zip"))
             .pipe(gulp.dest(config.distDir));
 });
@@ -56,7 +59,7 @@ gulp.task("dist", function() {
  * Copy the extension to local extensions folder only
  */
 gulp.task("copy:extension", function() {
-    return gulp.src(config.srcDir + "/**/*")
+    return gulp.src(["metadata.json", config.srcDir + "/**/*"])
             .pipe(gulp.dest(config.installDir));
 });
 
