@@ -69,7 +69,7 @@ const StatusTitleBarButton = new Lang.Class({
         Utils.connectAndTrack(this, global.window_manager, 'destroy',
                 Lang.bind(this, this._onWindowDestroy));
 
-        Utils.connectAndTrack(this, global.screen, 'notify::n-workspaces',
+        Utils.connectAndTrack(this, global.workspace_manager, 'notify::n-workspaces',
                 Lang.bind(this, this._workspacesChanged));
 
         Utils.connectAndTrack(this, global.display, "notify::focus-window",
@@ -101,8 +101,8 @@ const StatusTitleBarButton = new Lang.Class({
     _workspacesChanged: function() {
         Utils.disconnectTrackedSignals(this._wsSignals);
 
-        for ( let i = 0; i < global.screen.n_workspaces; ++i ) {
-            let ws = global.screen.get_workspace_by_index(i);
+        for ( let i = 0; i < global.workspace_manager.n_workspaces; ++i ) {
+            let ws = global.workspace_manager.get_workspace_by_index(i);
 
             Utils.connectAndTrack(this._wsSignals, ws, 'window-removed',
                     Lang.bind(this, this._sync));
@@ -226,7 +226,7 @@ const StatusTitleBar = new Lang.Class({
 // legacy support
 if (!Panel.AppMenuButton.prototype.hasOwnProperty("_findTargetApp")) {
     StatusTitleBarButton.prototype._findTargetApp = function() {
-        let workspace = global.screen.get_active_workspace();
+        let workspace = global.workspace_manager.get_active_workspace();
         let tracker = Shell.WindowTracker.get_default();
         let focusedApp = tracker.focus_app;
         if (focusedApp && focusedApp.is_on_workspace(workspace))
