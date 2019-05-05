@@ -13,3 +13,5 @@
 
 # node deps
 /node_modules/
+
+.idea/
