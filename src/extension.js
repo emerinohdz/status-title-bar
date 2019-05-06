@@ -77,15 +77,13 @@ const StatusTitleBarButton = new Lang.Class({
                 Lang.bind(this, this._sync));
 
         // if actor is destroyed, we must disconnect.
-        Utils.connectAndTrack(this, this.actor, 'destroy', 
+        Utils.connectAndTrack(this, this.actor, 'destroy',
                 Lang.bind(this, this.destroy));
 
         this._workspacesChanged();
     },
 
     _sync: function() {
-        this.parent();
-
         let win = global.display.focus_window;
         if (!win) {
             return;
@@ -97,6 +95,8 @@ const StatusTitleBarButton = new Lang.Class({
 
         let targetApp = this._findTargetApp();
         this._setTitle(win, targetApp)
+
+        this.parent();
     },
 
     _workspacesChanged: function() {
@@ -129,11 +129,14 @@ const StatusTitleBarButton = new Lang.Class({
 
     _setTitle: function(win, app) {
         this._label.set_text("");
+        this.set_accessible_name("");
 
         if (win.get_maximized() == FLAGS_MAXED) {
             this._label.set_text(win.title);
+            this.set_accessible_name(win.title);
         } else if (app) {
             this._label.set_text(app.get_name());
+            this.set_accessible_name(app.get_name());
         }
     },
 
@@ -193,8 +196,6 @@ const StatusTitleBarButton = new Lang.Class({
     }
 
 });
-
-Signals.addSignalMethods(StatusTitleBarButton.prototype);
 
 const StatusTitleBar = new Lang.Class({
     Name: 'StatusTitleBar',
