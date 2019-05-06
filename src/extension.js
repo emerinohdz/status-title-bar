@@ -51,21 +51,12 @@ const StatusTitleBarButton = new Lang.Class({
 
         /*** Holders for local tracked signals ***/
         this._wsSignals = {};
-        //this._targetAppSignals = {};
         this._workspaceManager = workspaceManager;
 
-        // maximize and unmaximize removed and size-change added GS 3.17
-        if (MAJOR_VERSION == 3 && MINOR_VERSION < 17) {
-            Utils.connectAndTrack(this, global.window_manager, 'maximize',
-                    Lang.bind(this, this._onRedimension));
-            Utils.connectAndTrack(this, global.window_manager, 'unmaximize',
-                    Lang.bind(this, this._onRedimension));
-        } else {
-            Utils.connectAndTrack(this, global.window_manager, 'hide-tile-preview',
-                    Lang.bind(this, this._onHideTitlePreview));
-            Utils.connectAndTrack(this, global.window_manager, 'size-change',
-                    Lang.bind(this, this._onRedimension));
-        }
+        Utils.connectAndTrack(this, global.window_manager, 'hide-tile-preview',
+                Lang.bind(this, this._onHideTitlePreview));
+        Utils.connectAndTrack(this, global.window_manager, 'size-change',
+                Lang.bind(this, this._onRedimension));
 
         Utils.connectAndTrack(this, global.window_manager, 'destroy',
                 Lang.bind(this, this._onWindowDestroy));
@@ -75,10 +66,6 @@ const StatusTitleBarButton = new Lang.Class({
 
         Utils.connectAndTrack(this, global.display, "notify::focus-window",
                 Lang.bind(this, this._sync));
-
-        // if actor is destroyed, we must disconnect.
-        Utils.connectAndTrack(this, this.actor, 'destroy',
-                Lang.bind(this, this.destroy));
 
         this._workspacesChanged();
     },
@@ -160,8 +147,6 @@ const StatusTitleBarButton = new Lang.Class({
     _onWindowDestroy: function(shellwm, actor) {
         let win = actor.get_meta_window();
         this._clearWindowSignal(win);
-
-        //this._label.setText("");
     },
     destroy: function () {
         // disconnect signals
@@ -208,10 +193,7 @@ const StatusTitleBar = new Lang.Class({
     },
 
     _getWorkspaceManager: function() {
-        // GS 3.30 removed global.screen
-        return (typeof global.screen !== "undefined") 
-                ? global.screen 
-                : global.workspace_manager;
+        return global.workspace_manager;
     },
 
     disable: function() {
@@ -231,23 +213,6 @@ const StatusTitleBar = new Lang.Class({
         panel._leftBox.insert_child_at_index(appMenu.actor.get_parent(), index);
     }
 });
-
-// legacy support
-if (!Panel.AppMenuButton.prototype.hasOwnProperty("_findTargetApp")) {
-    StatusTitleBarButton.prototype._findTargetApp = function() {
-        let workspace = global.screen.get_active_workspace();
-        let tracker = Shell.WindowTracker.get_default();
-        let focusedApp = tracker.focus_app;
-        if (focusedApp && focusedApp.is_on_workspace(workspace))
-            return focusedApp;
-
-        for (let i = 0; i < this._startingApps.length; i++)
-            if (this._startingApps[i].is_on_workspace(workspace))
-                return this._startingApps[i];
-
-        return null;
-    }
-} 
 
 // lightweight object, acts only as a holder when ext disabled
 let statusTitleBar = null; 
